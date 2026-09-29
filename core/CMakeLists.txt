@@ -1,4 +1,4 @@
-set(PARSER_SRC ${CMAKE_SOURCE_DIR}/tree-sitter-nexa/src/parser.c
+set(PARSER_SRC ${CMAKE_SOURCE_DIR}/tree-sitter-axiom/src/parser.c
         include/axiom/compiler.h
         include/axiom/registry.h
         src/analyzer.cpp
