@@ -6,9 +6,19 @@
 *.swp
 *.swo
 
+# AI / Agents
+/.agents/
+
+# Personal / Planning Notes
+/*コンパイラのDODパイプライン.md
+/Phase 2*.md
+/メモ.md
+/ロードマップ.md
+/構文.md
+
 # Node / Tree-sitter
-tree-sitter-nexa/node_modules/
-tree-sitter-nexa/build/
+tree-sitter-*/node_modules/
+tree-sitter-*/build/
 package-lock.json
 
 # CMake / C++ Build
@@ -16,3 +26,4 @@ package-lock.json
 /cmake-build-*/
 /cmake-build/
 .DS_Store
+
