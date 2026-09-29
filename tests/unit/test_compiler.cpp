@@ -1,12 +1,12 @@
-#include "nexa/analyzer.h"
-#include "nexa/registry.h"
-#include "nexa/symbol_table.h"
-#include "nexa/type_system.h"
-#include "nexa/type_checker.h"
+#include "axiom/analyzer.h"
+#include "axiom/registry.h"
+#include "axiom/symbol_table.h"
+#include "axiom/type_system.h"
+#include "axiom/type_checker.h"
 
 #include <gtest/gtest.h>
 
-using namespace nexa;
+using namespace axiom;
 
 void ParseAndAnalyze(std::string_view code, StringInterner& interner, VariableRegistry_DOD& var_reg, ComponentRegistry_DOD& comp_reg) {
     TSParser* parser = ts_parser_new();
@@ -143,7 +143,7 @@ TEST(AnalyzerTest, ExtractFunctionAndForEach) {
     )";
 
     // 1. パーサーと Interner の準備
-    nexa::StringInterner interner;
+    axiom::StringInterner interner;
     TSParser* parser = ts_parser_new();
     ts_parser_set_language(parser, tree_sitter_nexa());
 
@@ -155,7 +155,7 @@ TEST(AnalyzerTest, ExtractFunctionAndForEach) {
     std::cout << "\n==== AST DUMP ====\n" << tree_str << "\n==================\n" << std::endl;
     free(tree_str);
 
-    nexa::Analyzer analyzer(source, interner);
+    axiom::Analyzer analyzer(source, interner);
     analyzer.analyze_root(root_node);
 
     const auto& functions = analyzer.get_functions();
@@ -201,14 +201,14 @@ TEST(AnalyzerTest, ExtractIfStatement) {
         }
     )";
 
-    nexa::StringInterner interner;
+    axiom::StringInterner interner;
     TSParser* parser = ts_parser_new();
     ts_parser_set_language(parser, tree_sitter_nexa());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
 
-    nexa::Analyzer analyzer(source, interner);
+    axiom::Analyzer analyzer(source, interner);
     analyzer.analyze_root(root_node);
 
     const auto& functions = analyzer.get_functions();
@@ -238,14 +238,14 @@ TEST(AnalyzerTest, ExtractWhileStatement) {
         }
     )";
 
-    nexa::StringInterner interner;
+    axiom::StringInterner interner;
     TSParser* parser = ts_parser_new();
     ts_parser_set_language(parser, tree_sitter_nexa());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
 
-    nexa::Analyzer analyzer(source, interner);
+    axiom::Analyzer analyzer(source, interner);
     analyzer.analyze_root(root_node);
 
     const auto& functions = analyzer.get_functions();
@@ -272,14 +272,14 @@ TEST(AnalyzerTest, ExtractVariableDeclaration) {
         }
     )";
 
-    nexa::StringInterner interner;
+    axiom::StringInterner interner;
     TSParser* parser = ts_parser_new();
     ts_parser_set_language(parser, tree_sitter_nexa());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
 
-    nexa::Analyzer analyzer(source, interner);
+    axiom::Analyzer analyzer(source, interner);
     analyzer.analyze_root(root_node);
 
     const auto& functions = analyzer.get_functions();
@@ -309,13 +309,13 @@ TEST(AnalyzerTest, ExtractVariableDeclaration) {
 }
 
 TEST(TypeSystemTest, BuiltinTypeRegistration) {
-    nexa::StringInterner interner;
-    nexa::TypeRegistry type_registry(interner);
+    axiom::StringInterner interner;
+    axiom::TypeRegistry type_registry(interner);
 
     // float32 や bool という文字列をIDに変換してみる
-    nexa::StringID float32_id = interner.Intern("float32");
-    nexa::StringID bool_id = interner.Intern("bool");
-    nexa::StringID unknown_id = interner.Intern("Monster"); // 組み込み型ではない適当な名前
+    axiom::StringID float32_id = interner.Intern("float32");
+    axiom::StringID bool_id = interner.Intern("bool");
+    axiom::StringID unknown_id = interner.Intern("Monster"); // 組み込み型ではない適当な名前
 
     // TypeRegistryが正しくIDを保持し、組み込み型として判定できるか確認
     EXPECT_TRUE(type_registry.is_builtin(float32_id));
@@ -330,14 +330,14 @@ TEST(TypeSystemTest, BuiltinTypeRegistration) {
 }
 
 TEST(SymbolTableTest, BasicDeclarationAndLookup) {
-    nexa::StringInterner interner;
-    nexa::SymbolTable table;
+    axiom::StringInterner interner;
+    axiom::SymbolTable table;
 
-    nexa::StringID var_x = interner.Intern("x");
-    nexa::StringID type_i32 = interner.Intern("int32");
+    axiom::StringID var_x = interner.Intern("x");
+    axiom::StringID type_i32 = interner.Intern("int32");
 
     // 未定義の変数は検索失敗する
-    EXPECT_EQ(table.lookup(var_x), nexa::kInvalidStringID);
+    EXPECT_EQ(table.lookup(var_x), axiom::kInvalidStringID);
 
     // 変数登録と検索
     EXPECT_TRUE(table.declare(var_x, type_i32, /*is_mutable=*/false));
@@ -348,13 +348,13 @@ TEST(SymbolTableTest, BasicDeclarationAndLookup) {
 }
 
 TEST(SymbolTableTest, ScopeNestingAndShadowing) {
-    nexa::StringInterner interner;
-    nexa::SymbolTable table;
+    axiom::StringInterner interner;
+    axiom::SymbolTable table;
 
-    nexa::StringID var_x = interner.Intern("x");
-    nexa::StringID var_y = interner.Intern("y");
-    nexa::StringID type_i32 = interner.Intern("int32");
-    nexa::StringID type_f32 = interner.Intern("float32");
+    axiom::StringID var_x = interner.Intern("x");
+    axiom::StringID var_y = interner.Intern("y");
+    axiom::StringID type_i32 = interner.Intern("int32");
+    axiom::StringID type_f32 = interner.Intern("float32");
 
     // グローバル / 最外周スコープ
     EXPECT_TRUE(table.declare(var_x, type_i32, false));
@@ -378,35 +378,35 @@ TEST(SymbolTableTest, ScopeNestingAndShadowing) {
     // 脱出後は外側の型（int32）に復帰している
     EXPECT_EQ(table.lookup(var_x), type_i32);
     // 内側で定義された y は消滅している
-    EXPECT_EQ(table.lookup(var_y), nexa::kInvalidStringID);
+    EXPECT_EQ(table.lookup(var_y), axiom::kInvalidStringID);
 }
 
 TEST(SymbolTableTest, RedundantExitScopeSafety) {
-    nexa::SymbolTable table;
+    axiom::SymbolTable table;
 
     // スコープが空の状態で exit_scope を呼んでもクラッシュしない
     EXPECT_NO_THROW(table.exit_scope());
 }
 
-#include "nexa/type_checker.h"
+#include "axiom/type_checker.h"
 
 // 1. 正常な関数のテスト（正しい戻り値と引数）
 TEST(TypeCheckerTest, ValidFunctionSignature) {
-    nexa::StringInterner interner;
-    nexa::TypeRegistry registry(interner);
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
 
     // 手動で正しい関数のデータを作る
-    nexa::FunctionInfo func;
+    axiom::FunctionInfo func;
     func.name_id = interner.Intern("valid_func");
     func.return_type_id = registry.get_int32(); // 組み込み型 int32
 
-    nexa::ParameterInfo p1;
+    axiom::ParameterInfo p1;
     p1.name_id = interner.Intern("x");
     p1.type_id = registry.get_float32(); // 組み込み型 float32
     func.parameters.push_back(p1);
 
-    std::vector<nexa::FunctionInfo> funcs = { func };
-    nexa::TypeChecker checker(funcs, registry, interner);
+    std::vector<axiom::FunctionInfo> funcs = { func };
+    axiom::TypeChecker checker(funcs, registry, interner);
 
     // エラーがなく、true が返るはず
     EXPECT_TRUE(checker.check_all());
@@ -415,15 +415,15 @@ TEST(TypeCheckerTest, ValidFunctionSignature) {
 
 // 2. 未定義の戻り値のテスト
 TEST(TypeCheckerTest, InvalidReturnType) {
-    nexa::StringInterner interner;
-    nexa::TypeRegistry registry(interner);
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
 
-    nexa::FunctionInfo func;
+    axiom::FunctionInfo func;
     func.name_id = interner.Intern("bad_return");
     func.return_type_id = interner.Intern("UnknownType"); // 存在しない型
 
-    std::vector<nexa::FunctionInfo> funcs = { func };
-    nexa::TypeChecker checker(funcs, registry, interner);
+    std::vector<axiom::FunctionInfo> funcs = { func };
+    axiom::TypeChecker checker(funcs, registry, interner);
 
     // エラーが発生し、false が返るはず
     EXPECT_FALSE(checker.check_all());
@@ -437,28 +437,28 @@ TEST(TypeCheckerTest, InvalidReturnType) {
 
 // 3. 未定義の引数 ＆ 引数の名前被りテスト
 TEST(TypeCheckerTest, InvalidAndDuplicateParameters) {
-    nexa::StringInterner interner;
-    nexa::TypeRegistry registry(interner);
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
 
-    nexa::FunctionInfo func;
+    axiom::FunctionInfo func;
     func.name_id = interner.Intern("bad_params");
     func.return_type_id = registry.get_int32();
 
     // 1つ目の引数: 型が存在しない
-    nexa::ParameterInfo p1;
+    axiom::ParameterInfo p1;
     p1.name_id = interner.Intern("x");
     p1.type_id = interner.Intern("UnknownParamType");
 
     // 2つ目の引数: 型は正しいが、名前 'x' が1つ目と被っている
-    nexa::ParameterInfo p2;
+    axiom::ParameterInfo p2;
     p2.name_id = interner.Intern("x");
     p2.type_id = registry.get_int32();
 
     func.parameters.push_back(p1);
     func.parameters.push_back(p2);
 
-    std::vector<nexa::FunctionInfo> funcs = { func };
-    nexa::TypeChecker checker(funcs, registry, interner);
+    std::vector<axiom::FunctionInfo> funcs = { func };
+    axiom::TypeChecker checker(funcs, registry, interner);
 
     EXPECT_FALSE(checker.check_all());
     // エラーが2つ（型不明 ＋ 名前被り）出ているはず
@@ -469,27 +469,27 @@ TEST(TypeCheckerTest, InvalidAndDuplicateParameters) {
 
 // 4. 関数内のローカル変数宣言のテスト
 TEST(TypeCheckerTest, VariableDeclarations) {
-    nexa::StringInterner interner;
-    nexa::TypeRegistry registry(interner);
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
 
-    nexa::FunctionInfo func;
+    axiom::FunctionInfo func;
     func.name_id = interner.Intern("test_vars");
     func.return_type_id = registry.get_int32();
 
     // 変数1: 正しい型 (float32)
-    nexa::VariableInfo v1;
+    axiom::VariableInfo v1;
     v1.name_id = interner.Intern("health");
     v1.type_id = registry.get_float32();
     v1.is_mutable = true;
 
     // 変数2: 存在しない型
-    nexa::VariableInfo v2;
+    axiom::VariableInfo v2;
     v2.name_id = interner.Intern("magic");
     v2.type_id = interner.Intern("UnknownType");
     v2.is_mutable = false;
 
     // 変数3: 名前が変数1と被っている (health)
-    nexa::VariableInfo v3;
+    axiom::VariableInfo v3;
     v3.name_id = interner.Intern("health");
     v3.type_id = registry.get_int32();
     v3.is_mutable = false;
@@ -498,8 +498,8 @@ TEST(TypeCheckerTest, VariableDeclarations) {
     func.variables.push_back(v2);
     func.variables.push_back(v3);
 
-    std::vector<nexa::FunctionInfo> funcs = { func };
-    nexa::TypeChecker checker(funcs, registry, interner);
+    std::vector<axiom::FunctionInfo> funcs = { func };
+    axiom::TypeChecker checker(funcs, registry, interner);
 
     EXPECT_FALSE(checker.check_all());
 
@@ -511,33 +511,33 @@ TEST(TypeCheckerTest, VariableDeclarations) {
 
 // 5. If文とWhile文の条件式テスト
 TEST(TypeCheckerTest, IfAndWhileConditions) {
-    nexa::StringInterner interner;
-    nexa::TypeRegistry registry(interner);
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
 
-    nexa::FunctionInfo func;
+    axiom::FunctionInfo func;
     func.name_id = interner.Intern("test_conds");
     func.return_type_id = registry.get_int32();
 
     // スコープに bool 型の変数 "is_active" と int32 型の "count" を登録（今回は引数として）
-    nexa::ParameterInfo p1{ interner.Intern("is_active"), registry.get_bool() };
-    nexa::ParameterInfo p2{ interner.Intern("count"), registry.get_int32() };
+    axiom::ParameterInfo p1{ interner.Intern("is_active"), registry.get_bool() };
+    axiom::ParameterInfo p2{ interner.Intern("count"), registry.get_int32() };
     func.parameters.push_back(p1);
     func.parameters.push_back(p2);
 
     // 1. If文: 条件が int32 型 (count) -> エラーになるはず
-    nexa::IfInfo if_bad{ interner.Intern("count") };
+    axiom::IfInfo if_bad{ interner.Intern("count") };
     func.if_statements.push_back(if_bad);
 
     // 2. While文: 条件が bool 型 (is_active) -> 正常
-    nexa::WhileInfo while_ok{ interner.Intern("is_active") };
+    axiom::WhileInfo while_ok{ interner.Intern("is_active") };
     func.while_loops.push_back(while_ok);
 
     // 3. While文: 条件が存在しない変数 (unknown) -> エラーになるはず
-    nexa::WhileInfo while_bad{ interner.Intern("unknown") };
+    axiom::WhileInfo while_bad{ interner.Intern("unknown") };
     func.while_loops.push_back(while_bad);
 
-    std::vector<nexa::FunctionInfo> funcs = { func };
-    nexa::TypeChecker checker(funcs, registry, interner);
+    std::vector<axiom::FunctionInfo> funcs = { func };
+    axiom::TypeChecker checker(funcs, registry, interner);
 
     EXPECT_FALSE(checker.check_all());
 
@@ -549,12 +549,12 @@ TEST(TypeCheckerTest, IfAndWhileConditions) {
 
 // 6. ForEachループのテスト
 TEST(TypeCheckerTest, ForEachLoops) {
-    nexa::StringInterner interner;
-    nexa::TypeRegistry registry(interner);
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
 
-    nexa::StringID valid_entity_id = interner.Intern("string");
+    axiom::StringID valid_entity_id = interner.Intern("string");
 
-    nexa::FunctionInfo func;
+    axiom::FunctionInfo func;
     func.name_id = interner.Intern("test_foreach");
     func.return_type_id = registry.get_int32();
 
@@ -563,25 +563,25 @@ TEST(TypeCheckerTest, ForEachLoops) {
     func.parameters.push_back({ interner.Intern("hp"), registry.get_int32() });
 
     // 1. 正常なForEach: 対象が存在し(string)、条件が bool (is_alive)
-    nexa::ForEachInfo loop_ok;
+    axiom::ForEachInfo loop_ok;
     loop_ok.target_entity_id = valid_entity_id;
     loop_ok.condition_id = interner.Intern("is_alive");
     func.for_each_loops.push_back(loop_ok);
 
     // 2. エラー: 存在しない対象エンティティ ("Ghost")
-    nexa::ForEachInfo loop_bad_target;
+    axiom::ForEachInfo loop_bad_target;
     loop_bad_target.target_entity_id = interner.Intern("Ghost");
-    loop_bad_target.condition_id = nexa::kInvalidStringID; // 条件なし
+    loop_bad_target.condition_id = axiom::kInvalidStringID; // 条件なし
     func.for_each_loops.push_back(loop_bad_target);
 
     // 3. エラー: 条件が bool ではない ("hp")
-    nexa::ForEachInfo loop_bad_cond;
+    axiom::ForEachInfo loop_bad_cond;
     loop_bad_cond.target_entity_id = valid_entity_id;
     loop_bad_cond.condition_id = interner.Intern("hp");
     func.for_each_loops.push_back(loop_bad_cond);
 
-    std::vector<nexa::FunctionInfo> funcs = { func };
-    nexa::TypeChecker checker(funcs, registry, interner);
+    std::vector<axiom::FunctionInfo> funcs = { func };
+    axiom::TypeChecker checker(funcs, registry, interner);
 
     EXPECT_FALSE(checker.check_all());
 
@@ -589,4 +589,128 @@ TEST(TypeCheckerTest, ForEachLoops) {
     ASSERT_EQ(checker.get_errors().size(), 2);
     EXPECT_NE(checker.get_errors()[0].message.find("Unknown target entity in forEach"), std::string::npos);
     EXPECT_NE(checker.get_errors()[1].message.find("forEach condition must be bool"), std::string::npos);
+}
+
+TEST(TypeCheckerTest, ExpressionEvaluationValid) {
+    const char* source = R"(
+        fun calc_test() -> void {
+            val a = 10;
+            val b = 20;
+            val c = a + b;
+            val flag = a < b;
+            val is_ok = not flag;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    // エラーがなく、成功することを確認
+    EXPECT_TRUE(checker.check_all());
+    EXPECT_TRUE(checker.get_errors().empty());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 8. 二項演算での型不一致（暗黙キャスト禁止）のテスト
+TEST(TypeCheckerTest, ExpressionEvaluationTypeMismatch) {
+    const char* source = R"(
+        fun bad_calc() -> void {
+            val a: int32 = 10;
+            val b: float32 = 1.5;
+            val c = a + b;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_FALSE(checker.check_all());
+    ASSERT_EQ(checker.get_errors().size(), 1);
+    EXPECT_NE(checker.get_errors()[0].message.find("Type mismatch in arithmetic operation"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 9. 明示された型と初期値の型不一致テスト
+TEST(TypeCheckerTest, ExpressionEvaluationAnnotationMismatch) {
+    const char* source = R"(
+        fun bad_annotation() -> void {
+            val x: int32 = 3.14;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_FALSE(checker.check_all());
+    ASSERT_EQ(checker.get_errors().size(), 1);
+    EXPECT_NE(checker.get_errors()[0].message.find("Variable type annotation does not match initial value type"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 10. 論理演算および単項演算の型不一致テスト
+TEST(TypeCheckerTest, ExpressionEvaluationLogicalErrors) {
+    const char* source = R"(
+        fun bad_logic() -> void {
+            val num = 10;
+            val bad_not = not num;
+            val bad_and = true and 20;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_FALSE(checker.check_all());
+    ASSERT_EQ(checker.get_errors().size(), 2);
+    EXPECT_NE(checker.get_errors()[0].message.find("Operand of 'not' must be bool"), std::string::npos);
+    EXPECT_NE(checker.get_errors()[1].message.find("Operands of 'and' / 'or' must be bool"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
 }

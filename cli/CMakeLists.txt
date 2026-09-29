@@ -1,5 +1,5 @@
-add_executable(nexa-cli src/main.cpp)
+add_executable(axc src/main.cpp)
 
-target_link_libraries(nexa-cli PRIVATE nexa-core)
+target_link_libraries(axc PRIVATE axiom-core)
 
-set_nexa_warnings(nexa-cli)
+set_axiom_warnings(axc)

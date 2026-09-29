@@ -1,23 +1,23 @@
 set(PARSER_SRC ${CMAKE_SOURCE_DIR}/tree-sitter-nexa/src/parser.c
-        include/nexa/compiler.h
-        include/nexa/registry.h
+        include/axiom/compiler.h
+        include/axiom/registry.h
         src/analyzer.cpp
-        include/nexa/analyzer.h
-        include/nexa/type_system.h
-        include/nexa/symbol_table.h
+        include/axiom/analyzer.h
+        include/axiom/type_system.h
+        include/axiom/symbol_table.h
         src/symbol_table.cpp
-        include/nexa/type_checker.h
+        include/axiom/type_checker.h
         src/type_checker.cpp)
 
-add_library(nexa-core STATIC
+add_library(axiom-core STATIC
     ${PARSER_SRC}
     src/compiler.cpp
     ${tree-sitter_SOURCE_DIR}/lib/src/lib.c
 )
 
-target_include_directories(nexa-core PUBLIC
+target_include_directories(axiom-core PUBLIC
     include
     ${tree-sitter_SOURCE_DIR}/lib/include
 )
 
-set_nexa_warnings(nexa-core)
+set_axiom_warnings(axiom-core)

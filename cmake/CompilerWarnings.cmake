@@ -1,5 +1,5 @@
-# Nexe専用の警告設定を行う関数
-function(set_nexa_warnings target_name)
+# Axiom専用の警告設定を行う関数
+function(set_axiom_warnings target_name)
     set(CLANG_WARNINGS
             -Wall
             -Wextra
