@@ -1,15 +1,15 @@
-# Nexa Programming Language
+# Axiom Programming Language
 
 ---
 
 ## English
 ## [Japanese Version](README.JP.md)
 
-### What is Nexa?
+### What is Axiom?
 
-Nexa is a modern systems programming language designed from the ground up for **Data-Oriented Design (DOD)** and high-performance computing (e.g., game engines, graphics rendering). It challenges the traditional object-oriented paradigms by prioritizing data layouts, memory caches, and flat Data Structures (SoA - Structure of Arrays) automatically.
+Axiom is a modern systems programming language designed from the ground up for **Data-Oriented Design (DOD)** and high-performance computing (e.g., game engines, graphics rendering). It challenges the traditional object-oriented paradigms by prioritizing data layouts, memory caches, and flat Data Structures (SoA - Structure of Arrays) automatically.
 
-Currently in the bootstrapping phase (written in C++23 with Tree-sitter), Nexa aims for complete C/C++ compatibility and eventual self-hosting.
+Currently in the bootstrapping phase (written in C++23 with Tree-sitter), Axiom aims for complete C/C++ compatibility and eventual self-hosting.
 
 ### Key Features
 
@@ -19,9 +19,9 @@ Currently in the bootstrapping phase (written in C++23 with Tree-sitter), Nexa a
 
 ### Quick Look
 
-In Nexa, a component is defined simply, but compiled into highly optimized parallel arrays.
+In Axiom, a component is defined simply, but compiled into highly optimized parallel arrays.
 
-```nexa
+```axiom
 // Components are automatically laid out as Structure of Arrays (SoA)
 component Position {
     x: f32,
@@ -57,7 +57,7 @@ cmake --build .
 
 ### Testing
 
-Nexa uses Google Test for its robust Test-Driven Development (TDD) environment.
+Axiom uses Google Test for its robust Test-Driven Development (TDD) environment.
 
 ```bash
 ./tests/nexa-test
