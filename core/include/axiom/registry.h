@@ -82,6 +82,12 @@ struct WhileInfo {
     StringID condition_id;  // 条件式に使われている変数名のID
 };
 
+/// 代入文 1つ分の情報
+struct AssignmentInfo {
+    TSNode left_node;   // 左辺のノード（"hp" などの変数名）
+    TSNode right_node;  // 右辺のノード（"100" や "a + b" などの式）
+};
+
 /// 関数宣言1つ分の情報。Analyzer が抽出し TypeChecker に渡す主要な中間データ。
 ///
 /// 例:
@@ -100,6 +106,7 @@ struct FunctionInfo {
     std::vector<IfInfo>        if_statements;   // 関数内の if 文一覧
     std::vector<WhileInfo>     while_loops;     // 関数内の while 一覧
     std::vector<VariableInfo>  variables;       // 関数内の変数宣言一覧
+    std::vector<AssignmentInfo> assignments;    // 変数の代入チェック
 };
 
 } // namespace axiom

@@ -60,6 +60,10 @@ public:
     /// @return 見つかれば型の StringID、見つからなければ kInvalidStringID
     [[nodiscard]] StringID lookup(StringID name_id) const noexcept;
 
+    /// 変数名から Symbol 情報（型・可変性）を丸ごと取得する（内側スコープ優先）。
+    /// @return 見つかれば Symbol へのポインタ、見つからなければ nullptr
+    [[nodiscard]] const Symbol* lookup_symbol(StringID name_id) const noexcept;
+
 private:
     std::vector<Symbol> symbols_;           // 全スコープのシンボルをフラットに格納
     std::vector<size_t> scope_markers_;     // 各スコープの開始インデックスを記録するスタック

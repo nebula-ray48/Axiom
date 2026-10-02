@@ -22,6 +22,8 @@
 
 #include <__ranges/reverse_view.h>
 
+#include <ranges>
+
 namespace axiom {
 
 /// 新しいスコープに入る。
@@ -73,20 +75,23 @@ bool SymbolTable::declare(StringID name_id, StringID type_id, bool is_mutable) {
     return true;
 }
 
+const Symbol* SymbolTable::lookup_symbol(StringID name_id) const noexcept {
+    // 末尾（内側スコープ）から先頭に向かって探索
+    for (const auto& symbol : symbols_ | std::ranges::views::reverse) {
+        if (symbol.name_id == name_id) {
+            return &symbol;
+        }
+    }
+    return nullptr;
+}
+
 /// 変数名の StringID から型の StringID を逆引きする。
 /// 内側スコープ（末尾）から外側スコープ（先頭）の順に探す。
 ///
 /// @return 変数が見つかればその型の StringID、見つからなければ kInvalidStringID
 StringID SymbolTable::lookup(StringID name_id) const noexcept {
-    // std::ranges::views::reverse で末尾から先頭に逆順イテレート
-    for (const auto& symbol : symbols_ | std::ranges::views::reverse) {
-        if (symbol.name_id == name_id) {
-            return symbol.type_id;
-        }
-    }
-
-    // どのスコープにも見つからなかった → 未定義変数
-    return kInvalidStringID;
+    const Symbol* sym = lookup_symbol(name_id);
+    return sym ? sym->type_id : kInvalidStringID;
 }
 
 } // namespace axiom

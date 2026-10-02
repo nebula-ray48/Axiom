@@ -95,6 +95,7 @@ void TypeChecker::check_function(const FunctionInfo& func) {
     check_for_each_loops(func.name_id, func.for_each_loops);
     check_if_statements(func.name_id, func.if_statements);
     check_while_loops(func.name_id, func.while_loops);
+    check_assignments(func.name_id, func.assignments);
 
     symbol_table_.exit_scope(); // 関数のスコープから出る
 }
@@ -279,6 +280,26 @@ StringID TypeChecker::evaluate_binary(TSNode node, StringID func_name) {
     return kInvalidStringID;
 }
 
+void TypeChecker::check_assignments(StringID func_name, const std::vector<AssignmentInfo>& assignments) {
+    for (const auto assign : assignments) {
+        StringID var_name_id = get_node_string_id(assign.left_node);
+
+        const Symbol* sym = symbol_table_.lookup_symbol(var_name_id);
+        if (!sym) {
+            report_error(func_name, "Undefined variable: " + std::string(interner_.GetString(var_name_id)));
+            continue;
+        }
+
+        if (!sym->is_mutable) {
+            report_error(func_name, "Cannot assign to immutable variable: " + std::string(interner_.GetString(var_name_id)));
+        }
+
+        StringID right_type = evaluate_expression(assign.right_node, func_name);
+        if (is_valid(right_type) && sym->type_id != right_type) {
+            report_error(func_name, "Type mismatch in assignment");
+        }
+    }
+}
 
 StringID TypeChecker::evaluate_expression(TSNode expr_node, StringID func_name) {
     // 1. nullノードのガード

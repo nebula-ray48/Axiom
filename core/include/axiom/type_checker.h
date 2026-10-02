@@ -119,6 +119,8 @@ private:
     /// 式の型評価
     StringID evaluate_expression(TSNode expr_node, StringID func_name);
 
+    void check_assignments(StringID func_name, const std::vector<AssignmentInfo>& assignments);
+
 };
 
 } // namespace axiom

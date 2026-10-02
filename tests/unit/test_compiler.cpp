@@ -714,3 +714,123 @@ TEST(TypeCheckerTest, ExpressionEvaluationLogicalErrors) {
     ts_tree_delete(tree);
     ts_parser_delete(parser);
 }
+
+// 11. 代入文の正常系テスト（var 変数への代入）
+TEST(TypeCheckerTest, AssignmentValid) {
+    const char* source = R"(
+        fun test_valid_assign() -> void {
+            var count = 0;
+            count = 10;
+            var flag = false;
+            flag = true;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_TRUE(checker.check_all());
+    EXPECT_TRUE(checker.get_errors().empty());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 12. 代入文の不変性違反テスト（val 変数への再代入エラー）
+TEST(TypeCheckerTest, AssignmentImmutableError) {
+    const char* source = R"(
+        fun test_immutable_assign() -> void {
+            val speed = 100;
+            speed = 200;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_FALSE(checker.check_all());
+    ASSERT_EQ(checker.get_errors().size(), 1);
+    EXPECT_NE(checker.get_errors()[0].message.find("Cannot assign to immutable variable"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 13. 代入文の型不一致テスト（異なる型の代入エラー）
+TEST(TypeCheckerTest, AssignmentTypeMismatchError) {
+    const char* source = R"(
+        fun test_type_mismatch() -> void {
+            var hp: int32 = 100;
+            hp = 3.14;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_FALSE(checker.check_all());
+    ASSERT_EQ(checker.get_errors().size(), 1);
+    EXPECT_NE(checker.get_errors()[0].message.find("Type mismatch in assignment"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 14. 代入文の未定義変数テスト（宣言されていない変数への代入エラー）
+TEST(TypeCheckerTest, AssignmentUndefinedVariableError) {
+    const char* source = R"(
+        fun test_undefined_assign() -> void {
+            unknown_var = 10;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_FALSE(checker.check_all());
+    ASSERT_EQ(checker.get_errors().size(), 1);
+    EXPECT_NE(checker.get_errors()[0].message.find("Undefined variable"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
