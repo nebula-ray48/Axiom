@@ -18,8 +18,11 @@
 //   tree-sitter-nexa の grammar.js で定義されたフィールド名（"name", "body" 等）を使う。
 //   第3引数はフィールド名の文字列長。
 
-#include "axiom/registry.h"
 #include "axiom/analyzer.h"
+
+#include <numbers>
+
+#include "axiom/registry.h"
 
 namespace axiom {
 
@@ -68,6 +71,14 @@ void Analyzer::analyze_function(TSNode func_node) {
     // "name" フィールドから関数名の StringID を取得（4は "name" の文字列長）
     TSNode name_node = ts_node_child_by_field_name(func_node, "name", 4);
     info.name_id = get_node_string_id(name_node);
+
+    TSNode ret_node = ts_node_child_by_field_name(func_node, "return_type", 11);
+    if (!ts_node_is_null(ret_node)) {
+        info.return_type_id = get_node_string_id(ret_node);
+    } else {
+        info.return_type_id = interner_.Intern("void");
+    }
+
 
     // 子ノードの中から parameter_list を探す（フィールド名ではなくノード型で特定）
     uint32_t child_count = ts_node_named_child_count(func_node);
@@ -148,6 +159,13 @@ void Analyzer::analyze_block(TSNode block_node, FunctionInfo& current_func) {
 
                 current_func.assignments.push_back(assign_info);
             }
+        } else if (type == "return_statement") {
+            ReturnInfo return_info;
+            if (ts_node_named_child_count(statement) > 0) {
+                TSNode expr = ts_node_named_child(statement, 0);
+                return_info.value_node = expr;
+            }
+            current_func.return_statements.push_back(return_info);
         }
     }
 }

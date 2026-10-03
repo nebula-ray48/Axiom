@@ -121,6 +121,8 @@ private:
 
     void check_assignments(StringID func_name, const std::vector<AssignmentInfo>& assignments);
 
+    void check_return_statements(StringID func_name, StringID expected_return_type, const std::vector<ReturnInfo>& return_stmts);
+
 };
 
 } // namespace axiom

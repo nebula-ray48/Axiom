@@ -96,6 +96,7 @@ void TypeChecker::check_function(const FunctionInfo& func) {
     check_if_statements(func.name_id, func.if_statements);
     check_while_loops(func.name_id, func.while_loops);
     check_assignments(func.name_id, func.assignments);
+    check_return_statements(func.name_id, func.return_type_id, func.return_statements);
 
     symbol_table_.exit_scope(); // 関数のスコープから出る
 }
@@ -299,6 +300,34 @@ void TypeChecker::check_assignments(StringID func_name, const std::vector<Assign
             report_error(func_name, "Type mismatch in assignment");
         }
     }
+}
+
+void TypeChecker::check_return_statements(StringID                       func_name,
+                                          StringID                       expected_return_type,
+                                          const std::vector<ReturnInfo>& return_stmts) {
+
+    bool is_void = (expected_return_type == interner_.Intern("void"))  || !is_valid(expected_return_type);
+
+    for (const auto& ret : return_stmts) {
+
+        if (is_void) {
+            if (ret.has_value()) {
+                report_error(func_name, "Cannot return a value from void function");
+            }
+
+        } else {
+            if (!ret.has_value()) {
+                report_error(func_name, "Non-void function must return a value");
+            } else {
+                // 2. 値があるなら型を計算してチェック
+                StringID actual_type = evaluate_expression(ret.value_node, func_name);
+                if (is_valid(actual_type) && actual_type != expected_return_type) {
+                    report_error(func_name, "Return type mismatch");
+                }
+            }
+        }
+    }
+
 }
 
 StringID TypeChecker::evaluate_expression(TSNode expr_node, StringID func_name) {

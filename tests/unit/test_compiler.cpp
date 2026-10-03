@@ -834,3 +834,122 @@ TEST(TypeCheckerTest, AssignmentUndefinedVariableError) {
     ts_tree_delete(tree);
     ts_parser_delete(parser);
 }
+
+// 15. return 文の正常系テスト（正しい型を返す & void関数での空return）
+TEST(TypeCheckerTest, ReturnValid) {
+    const char* source = R"(
+        fun add(a: int32, b: int32) -> int32 {
+            return a + b;
+        }
+
+        fun do_nothing() -> void {
+            return;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_TRUE(checker.check_all());
+    EXPECT_TRUE(checker.get_errors().empty());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 16. return 文の型不一致テスト（戻り値型と異なる式を返す）
+TEST(TypeCheckerTest, ReturnTypeMismatchError) {
+    const char* source = R"(
+        fun bad_calc() -> int32 {
+            return 3.14;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_FALSE(checker.check_all());
+    ASSERT_EQ(checker.get_errors().size(), 1);
+    EXPECT_NE(checker.get_errors()[0].message.find("Return type mismatch"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 17. return 文の空returnエラーテスト（非void関数で値を返さない）
+TEST(TypeCheckerTest, ReturnEmptyInNonVoidError) {
+    const char* source = R"(
+        fun need_value() -> int32 {
+            return;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_FALSE(checker.check_all());
+    ASSERT_EQ(checker.get_errors().size(), 1);
+    EXPECT_NE(checker.get_errors()[0].message.find("Non-void function must return a value"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 18. return 文のvoid関数での値返却エラーテスト
+TEST(TypeCheckerTest, ReturnValueInVoidError) {
+    const char* source = R"(
+        fun void_func() -> void {
+            return 100;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_nexa());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+
+    EXPECT_FALSE(checker.check_all());
+    ASSERT_EQ(checker.get_errors().size(), 1);
+    EXPECT_NE(checker.get_errors()[0].message.find("Cannot return a value from void function"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}

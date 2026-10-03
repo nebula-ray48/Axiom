@@ -56,12 +56,14 @@ public:
         type_bool_    = interner_.Intern("bool");
         type_string_  = interner_.Intern("string");
 
+        type_void_ = interner_.Intern("void");
+
         // is_builtin() で高速に検索できるよう、IDを配列にまとめておく
         builtin_type_ids_ = {
             type_int8_, type_int16_, type_int32_, type_int64_,
             type_uint8_, type_uint16_, type_uint32_, type_uint64_,
             type_float32_, type_float64_,
-            type_bool_, type_string_,
+            type_bool_, type_string_, type_void_,
         };
     }
 
@@ -79,6 +81,7 @@ public:
     [[nodiscard]] StringID get_float32() const noexcept { return type_float32_; }
     [[nodiscard]] StringID get_bool()    const noexcept { return type_bool_; }
     [[nodiscard]] StringID get_int32()   const noexcept { return type_int32_; }
+    [[nodiscard]] StringID get_void() const noexcept { return type_void_; }
 
 private:
     StringInterner& interner_;  // 参照のみ。所有権はなし（コンパイラ側が管理）
@@ -100,8 +103,10 @@ private:
     StringID type_bool_;
     StringID type_string_;
 
+    StringID type_void_;
+
     /// is_builtin() 用の組み込み型IDまとめ配列（要素数は型の総数と一致させること）
-    std::array<StringID, 12> builtin_type_ids_;
+    std::array<StringID, 13> builtin_type_ids_;
 };
 
 } // namespace axiom

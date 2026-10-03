@@ -88,6 +88,15 @@ struct AssignmentInfo {
     TSNode right_node;  // 右辺のノード（"100" や "a + b" などの式）
 };
 
+/// return分 型検証
+struct ReturnInfo {
+    TSNode value_node{};
+
+    [[nodiscard]] bool has_value() const noexcept {
+        return value_node.id != nullptr && !ts_node_is_null(value_node);
+    }
+};
+
 /// 関数宣言1つ分の情報。Analyzer が抽出し TypeChecker に渡す主要な中間データ。
 ///
 /// 例:
@@ -107,6 +116,7 @@ struct FunctionInfo {
     std::vector<WhileInfo>     while_loops;     // 関数内の while 一覧
     std::vector<VariableInfo>  variables;       // 関数内の変数宣言一覧
     std::vector<AssignmentInfo> assignments;    // 変数の代入チェック
+    std::vector<ReturnInfo> return_statements;
 };
 
 } // namespace axiom
