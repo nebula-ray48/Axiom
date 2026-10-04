@@ -1,8 +1,8 @@
-#include "axiom/analyzer.h"
-#include "axiom/registry.h"
-#include "axiom/symbol_table.h"
-#include "axiom/type_system.h"
-#include "axiom/type_checker.h"
+#include "axiom/syntax/analyzer.h"
+#include "axiom/base/registry.h"
+#include "axiom/sema/symbol_table.h"
+#include "axiom/sema/type_system.h"
+#include "axiom/sema/type_checker.h"
 
 #include <gtest/gtest.h>
 
@@ -388,7 +388,7 @@ TEST(SymbolTableTest, RedundantExitScopeSafety) {
     EXPECT_NO_THROW(table.exit_scope());
 }
 
-#include "axiom/type_checker.h"
+#include "axiom/sema/type_checker.h"
 
 // 1. 正常な関数のテスト（正しい戻り値と引数）
 TEST(TypeCheckerTest, ValidFunctionSignature) {

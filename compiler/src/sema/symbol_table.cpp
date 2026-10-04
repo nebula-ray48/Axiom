@@ -18,7 +18,7 @@
 //   内側スコープ（末尾側）で宣言した変数が先にヒットする。
 //   これにより変数シャドウイングが自然に機能する。
 
-#include "axiom/symbol_table.h"
+#include "axiom/sema/symbol_table.h"
 
 #include <__ranges/reverse_view.h>
 

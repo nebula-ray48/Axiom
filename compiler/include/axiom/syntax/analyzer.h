@@ -17,7 +17,7 @@
 
 #include <tree_sitter/api.h>
 
-#include "registry.h"
+#include "axiom/base/registry.h"
 
 namespace axiom {
 

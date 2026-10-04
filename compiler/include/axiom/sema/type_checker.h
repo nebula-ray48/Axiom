@@ -22,10 +22,10 @@
 #include <vector>
 #include <string>
 #include <string_view>
-#include "compiler.h"
-#include "registry.h"
-#include "type_system.h"
-#include "symbol_table.h"
+#include "axiom/base/compiler.h"
+#include "axiom/base/registry.h"
+#include "axiom/sema/type_system.h"
+#include "axiom/sema/symbol_table.h"
 
 namespace axiom {
 

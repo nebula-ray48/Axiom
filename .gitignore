@@ -15,10 +15,12 @@
 /メモ.md
 /ロードマップ.md
 /構文.md
+/test.md
 
 # Node / Tree-sitter
-tree-sitter-*/node_modules/
-tree-sitter-*/build/
+node_modules/
+**/node_modules/
+**/build/
 package-lock.json
 
 # CMake / C++ Build

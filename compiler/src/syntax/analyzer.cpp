@@ -18,11 +18,11 @@
 //   tree-sitter-nexa の grammar.js で定義されたフィールド名（"name", "body" 等）を使う。
 //   第3引数はフィールド名の文字列長。
 
-#include "axiom/analyzer.h"
+#include "axiom/syntax/analyzer.h"
 
 #include <numbers>
 
-#include "axiom/registry.h"
+#include "axiom/base/registry.h"
 
 namespace axiom {
 

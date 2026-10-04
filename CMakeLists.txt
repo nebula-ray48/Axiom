@@ -15,7 +15,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tree-sitter)
 
-add_subdirectory(core)
-add_subdirectory(cli)
+add_subdirectory(compiler)
 add_subdirectory(tests)
 # TODO lsp と stdlib は実装時に追加する

@@ -16,7 +16,7 @@
 //   TSFieldId : ASTのフィールド名を表す整数ID（例: "name" → 整数）
 //   これらを毎回文字列で解決するのは遅いため、Initialize() で起動時に一度だけ解決してキャッシュする。
 
-#include "axiom/compiler.h"
+#include "axiom/base/compiler.h"
 
 namespace axiom {
 

@@ -18,7 +18,7 @@
 #pragma once
 
 #include <array>
-#include "compiler.h" // StringInterner と StringID が定義されているヘッダー
+#include "axiom/base/compiler.h" // StringInterner と StringID が定義されているヘッダー
 
 namespace axiom {
 

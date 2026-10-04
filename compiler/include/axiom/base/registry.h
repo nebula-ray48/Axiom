@@ -22,7 +22,7 @@
 #include <string_view>
 #include <tree_sitter/api.h>
 
-#include "compiler.h"
+#include "axiom/base/compiler.h"
 
 namespace axiom {
 

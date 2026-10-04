@@ -21,7 +21,7 @@
 //   エラーが出ても即中断せず、全関数を最後まで検査する。
 //   errors_ にすべてのエラーを蓄積し、check_all() の戻り値で成否を伝える。
 
-#include "axiom/type_checker.h"
+#include "axiom/sema/type_checker.h"
 
 namespace axiom {
 
