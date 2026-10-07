@@ -28,4 +28,4 @@ CMakeLists.txt text eol=lf
 *.jpg binary
 *.jpeg binary
 
-*.nx linguist-language=Nexa
+*.ax linguist-language=axiom
