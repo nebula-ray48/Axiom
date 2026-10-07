@@ -24,9 +24,9 @@
 #include <tree_sitter/api.h>
 
 // tree-sitter-nexa グラマーのエントリポイント（C言語で実装されている）。
-// tree_sitter_nexa() を呼ぶことで Nexa 言語の TSLanguage* が得られる。
+// tree_sitter_axiom() を呼ぶことで Axiom 言語の TSLanguage* が得られる。
 extern "C" {
-const TSLanguage* tree_sitter_nexa();
+const TSLanguage* tree_sitter_axiom();
 }
 
 namespace axiom {
@@ -133,7 +133,7 @@ struct ComponentRegistry_DOD {
 ///
 /// 【使い方】
 ///   TreeSitterSymbols symbols;
-///   symbols.Initialize(tree_sitter_nexa());
+///   symbols.Initialize(tree_sitter_axiom());
 ///   // 以降は symbols.variable_declaration などを直接比較に使う
 struct TreeSitterSymbols {
     TSSymbol variable_declaration;   // "variable_declaration" ノードのシンボルID

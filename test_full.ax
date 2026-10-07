@@ -1,15 +1,86 @@
 component Position {
-    x: f32,
-    y: f32,
+    x: float32,
+    y: float32,
 }
 
-pub fun update_monsters(delta_time: f32) {
+component Velocity {
+    vx: float32,
+    vy: float32,
+}
+
+// これはテストコメントです。
+entity Monster {
+    Position,
+    Velocity,
+    id: uint32,
+    hp: int32,
+    is_active: bool,
+}
+
+error CombatError {
+    TargetDead,
+    OutOfRange,
+    InvalidAction
+}
+
+val max_speed: float32 = 100.0;
+var global_counter: uint64 = 0;
+
+// 配列と SoA / AoS の宣言と初期化
+val scores: [int32; 3] = [100, 200, 300];
+val particles: soa [Position; 1000] = [];
+val vertices: aos [Position; 4] = [];
+
+pub fun check_health(current_hp: int32) -> int32 or CombatError {
+    val is_dead: bool = current_hp <= 0;
+    if is_dead {
+        return error_code;
+    }
+    return current_hp;
+}
+
+fun reset_state() {
+    var timer: int32 = 0;
+    while timer < 10 {
+        timer = timer + 1;
+    }
+    return;
+}
+
+pub fun update_system(delta_time: float32) {
     forEach Monster where is_active {
-        Position.x = Position.x + 1.0;
-        val is_low_hp = hp < 20 and not hp <= 0;
-        
+        Position.x = Position.x + Velocity.vx * delta_time;
+        Position.y = Position.y + Velocity.vy * delta_time;
+
+        val is_low_hp: bool = hp < 20 and not hp <= 0;
+        val is_boundary_hit: bool = Position.x <= 0.0 or Position.x >= 1920.0;
+        val is_exact_pos: bool = Position.y == 0.0 or Position.y != 100.0;
+
         if is_low_hp {
             hp = 100;
         }
+
+        var count: int32 = 0;
+        while count < 3 {
+            count = count + 1;
+        }
+
+        val half_speed: float32 = max_speed / 2.0;
+        val speed_diff: float32 = max_speed - half_speed;
+
+        val guarded_val = try is_low_hp;
     }
+
+    // 配列のインデックスアクセス
+    val first_score: int32 = scores[0];
+
+    // SoA 配列要素へのアクセスと代入
+    particles[0].x = 10.0;
+
+    // AoS 配列要素へのアクセスと代入
+    vertices[1].y = 20.0;
+
+    return;
 }
+
+val result = check_health(100);

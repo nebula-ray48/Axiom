@@ -10,7 +10,7 @@ using namespace axiom;
 
 void ParseAndAnalyze(std::string_view code, StringInterner& interner, VariableRegistry_DOD& var_reg, ComponentRegistry_DOD& comp_reg) {
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(
         parser,
@@ -22,7 +22,7 @@ void ParseAndAnalyze(std::string_view code, StringInterner& interner, VariableRe
     TSNode root_node = ts_tree_root_node(tree);
 
     TreeSitterSymbols symbols;
-    symbols.Initialize(tree_sitter_nexa());
+    symbols.Initialize(tree_sitter_axiom());
 
     AnalyzeAST(root_node, code, interner, var_reg, comp_reg, symbols);
 
@@ -85,7 +85,7 @@ TEST(AnalyzerTest, ParseFunctionAndForEach) {
 
     // パーサーのセットアップ
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
 
@@ -145,7 +145,7 @@ TEST(AnalyzerTest, ExtractFunctionAndForEach) {
     // 1. パーサーと Interner の準備
     axiom::StringInterner interner;
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     uint32_t source_length = static_cast<uint32_t>(strlen(source));
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, source_length);
@@ -203,7 +203,7 @@ TEST(AnalyzerTest, ExtractIfStatement) {
 
     axiom::StringInterner interner;
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -240,7 +240,7 @@ TEST(AnalyzerTest, ExtractWhileStatement) {
 
     axiom::StringInterner interner;
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -274,7 +274,7 @@ TEST(AnalyzerTest, ExtractVariableDeclaration) {
 
     axiom::StringInterner interner;
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -605,7 +605,7 @@ TEST(TypeCheckerTest, ExpressionEvaluationValid) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -636,7 +636,7 @@ TEST(TypeCheckerTest, ExpressionEvaluationTypeMismatch) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -665,7 +665,7 @@ TEST(TypeCheckerTest, ExpressionEvaluationAnnotationMismatch) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -696,7 +696,7 @@ TEST(TypeCheckerTest, ExpressionEvaluationLogicalErrors) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -729,7 +729,7 @@ TEST(TypeCheckerTest, AssignmentValid) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -758,7 +758,7 @@ TEST(TypeCheckerTest, AssignmentImmutableError) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -788,7 +788,7 @@ TEST(TypeCheckerTest, AssignmentTypeMismatchError) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -817,7 +817,7 @@ TEST(TypeCheckerTest, AssignmentUndefinedVariableError) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -850,7 +850,7 @@ TEST(TypeCheckerTest, ReturnValid) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -878,7 +878,7 @@ TEST(TypeCheckerTest, ReturnTypeMismatchError) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -907,7 +907,7 @@ TEST(TypeCheckerTest, ReturnEmptyInNonVoidError) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);
@@ -936,7 +936,7 @@ TEST(TypeCheckerTest, ReturnValueInVoidError) {
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
     TSNode root_node = ts_tree_root_node(tree);

@@ -146,7 +146,7 @@ void AnalyzeAST(TSNode root_node, std::string_view source_text, StringInterner& 
 void parse_test_code() {
     // --- Tree-sitter パーサーの初期化 ---
     TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_nexa());  // Nexa 言語グラマーをセット
+    ts_parser_set_language(parser, tree_sitter_axiom());  // Axiom 言語グラマーをセット
 
     std::string source_code = "val hp: int32 = 100; component Position { x: float32, y: float32 }";
 
@@ -164,7 +164,7 @@ void parse_test_code() {
     // --- コンパイラ部品の初期化 ---
     StringInterner interner;
     TreeSitterSymbols symbols;
-    symbols.Initialize(tree_sitter_nexa());  // シンボルIDを一度だけ解決
+    symbols.Initialize(tree_sitter_axiom());  // シンボルIDを一度だけ解決
 
     VariableRegistry_DOD registry;
     ComponentRegistry_DOD comp_registry;

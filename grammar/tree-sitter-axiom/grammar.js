@@ -1,19 +1,25 @@
 module.exports = grammar({
-  name: 'nexa',
+  name: 'axiom',
 
-  precedences: $ => [
-    [
-      'assignment',
-      'or',
-      'and',
-      'compare',
-      'add',
-      'multiply',
-      'not',
-      'try',
+    extras: $ => [
+        /\s/,
+        $.comment,
+    ],
+
+    precedences: $ => [
+        [
+        'assignment',
+        'or',
+        'and',
+        'compare',
+        'add',
+        'multiply',
+        'not',
+        'try',
+        'call',
       'member'
-    ]
-  ],
+        ]
+    ],
 
   rules: {
     source_file: $ => repeat($._declaration),
@@ -80,12 +86,15 @@ module.exports = grammar({
 
     expression_statement: $ => seq($._expression, ';'),
 
-    _expression: $ => choice(
+      _expression: $ => choice(
       $.assignment_expression,
       $.binary_expression,
       $.unary_expression,
       $.try_expression,
-      $.identifier,
+        $.call_expression,
+          $.array_literal,
+          $.index_expression,
+          $.identifier,
       $.number,
       $.member_expression
     ),
@@ -97,10 +106,52 @@ module.exports = grammar({
     )),
 
     member_expression: $ => prec('member', seq(
-      field('object', choice($.identifier, $.type_identifier)),
+      field('object', choice($.identifier, $.type_identifier, $.index_expression)),
       '.',
       field('property', $.identifier)
     )),
+
+      call_expression: $ => prec('call', seq(
+          field('function', choice($.identifier, $.member_expression)),
+          field('arguments', $.argument_list)
+      )),
+      argument_list: $ => seq(
+          '(',
+          optional(seq(
+              $._expression,
+              repeat(seq(',', $._expression)),
+              optional(',') // 末尾のカンマを許容
+          )),
+          ')'
+      ),
+      comment: $ => token(seq('//', /.*/)),
+
+      // 配列型: [int32; 4], soa [Position; 1000], aos [RayHit; 64]
+      array_type: $ => seq(
+          optional(choice('soa', 'aos')),
+          '[',
+          field('element', $._type),
+          ';',
+          field('length', $.number),
+          ']'
+      ),
+      // 配列リテラル: [1, 2, 3]
+      array_literal: $ => seq(
+          '[',
+          optional(seq(
+              $._expression,
+              repeat(seq(',', $._expression)),
+              optional(',') // 末尾カンマを許容
+          )),
+          ']'
+      ),
+      // インデックスアクセス: arr[i]
+      index_expression: $ => prec('member', seq(
+          field('array', $._expression),
+          '[',
+          field('index', $._expression),
+          ']'
+      )),
 
     try_expression: $ => prec('try', seq('try', $._expression)),
 
@@ -123,7 +174,7 @@ module.exports = grammar({
           'string'
       ),
 
-    _type: $ => choice($.primitive_type, $.type_identifier),
+    _type: $ => choice($.primitive_type, $.type_identifier, $.array_type),
 
     identifier: $ => /[a-z_][a-zA-Z0-9_]*/,
     type_identifier: $ => /[A-Z][a-zA-Z0-9_]*/,
