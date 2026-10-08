@@ -83,6 +83,11 @@ public:
     [[nodiscard]] StringID get_int32()   const noexcept { return type_int32_; }
     [[nodiscard]] StringID get_void() const noexcept { return type_void_; }
 
+    struct FunctionSignature {
+        StringID return_type_id;
+        std::vector<StringID> parameter_types;
+    };
+
 private:
     StringInterner& interner_;  // 参照のみ。所有権はなし（コンパイラ側が管理）
 

@@ -30,7 +30,7 @@ Analyzer::Analyzer(std::string_view source_code, StringInterner& interner)
     : source_(source_code), interner_(interner) {}
 
 /// ASTのルートノードを走査し、トップレベルの function_declaration を解析する。
-/// Nexa ではトップレベルに関数宣言しか置けない設計なので、それ以外は無視する。
+/// Axiom ではトップレベルに関数宣言しか置けない設計なので、それ以外は無視する。
 void Analyzer::analyze_root(TSNode root_node) {
     uint32_t count = ts_node_named_child_count(root_node);
     for (uint32_t i = 0; i < count; ++i) {

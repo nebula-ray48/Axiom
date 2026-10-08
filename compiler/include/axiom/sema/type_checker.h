@@ -123,6 +123,10 @@ private:
 
     void check_return_statements(StringID func_name, StringID expected_return_type, const std::vector<ReturnInfo>& return_stmts);
 
+    std::unordered_map<StringID, TypeRegistry::FunctionSignature> function_signatures_;
+
+    void register_function_signature(const FunctionInfo& func);
+
 };
 
 } // namespace axiom

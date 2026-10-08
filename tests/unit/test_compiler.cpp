@@ -953,3 +953,32 @@ TEST(TypeCheckerTest, ReturnValueInVoidError) {
     ts_tree_delete(tree);
     ts_parser_delete(parser);
 }
+
+// 同名の関数が2回宣言された場合にエラーになるかテスト
+TEST(TypeCheckerTest, DuplicateFunctionDeclaration) {
+    const char* source = R"(
+        fun update() -> void {}
+        fun update() -> void {}
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Duplicate function declaration") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}

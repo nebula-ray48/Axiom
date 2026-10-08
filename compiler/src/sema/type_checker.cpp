@@ -44,8 +44,32 @@ void TypeChecker::report_error(StringID func_id, std::string_view message) {
     errors_.push_back(TypeError{ .function_name_id=func_id, .message=full_message });
 }
 
+void TypeChecker::register_function_signature(const FunctionInfo& func) {
+
+    if (function_signatures_.contains(func.name_id)) {
+        report_error(func.name_id, "Duplicate function declaration");
+        return;
+    }
+
+    std::vector<StringID> param_types;
+    param_types.reserve(func.parameters.size());
+    for (const auto& param : func.parameters) {
+        param_types.push_back(param.type_id);
+    }
+    // 3. マップに保存する
+    function_signatures_[func.name_id] = TypeRegistry::FunctionSignature{
+        .return_type_id = func.return_type_id,
+        .parameter_types = std::move(param_types)
+    };
+
+}
+
 /// 全関数を型検査する。エラーが1つもなければ true を返す。
 bool TypeChecker::check_all() {
+
+    for (const auto& func : functions_) {
+        register_function_signature(func);
+    }
 
     for (const auto& func : functions_) {
         check_function(func);
