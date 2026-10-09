@@ -379,6 +379,8 @@ StringID TypeChecker::evaluate_expression(TSNode expr_node, StringID func_name) 
     else if (node_type == "unary_expression") {
         // 単項演算 (例: not is_active)
         return evaluate_unary(expr_node, func_name);
+    } else if (node_type == "call_expression") {
+        return evaluate_call(expr_node, func_name);
     }
 
     // 未対応の式ノードの場合
@@ -400,5 +402,43 @@ StringID TypeChecker::evaluate_unary(TSNode node, StringID func_name) {
     }
     return bool_id;
 }
+
+StringID TypeChecker::evaluate_call(TSNode node, StringID func_name) {
+    // 1. 呼び出し先関数名を取得して辞書を検索
+    TSNode fn_node = ts_node_child_by_field_name(node, "function", 8);
+    StringID target_func_id = get_node_string_id(fn_node);
+
+    auto it = function_signatures_.find(target_func_id);
+    if (it == function_signatures_.end()) {
+        report_error(func_name, "Undefined function: " + std::string(interner_.GetString(target_func_id)));
+        return kInvalidStringID;
+    }
+
+    const auto& sig = it->second;
+    // 2. 引数リストと個数のチェック
+    TSNode args_node = ts_node_child_by_field_name(node, "arguments", 9);
+    uint32_t actual_arg_count = ts_node_named_child_count(args_node);
+    uint32_t expected_arg_count = static_cast<uint32_t>(sig.parameter_types.size());
+    if (actual_arg_count != expected_arg_count) {
+        report_error(func_name, "Function argument count mismatch");
+        return kInvalidStringID;
+    }
+    // 3. 各引数の型チェック
+    bool has_error = false;
+    for (uint32_t i = 0; i < actual_arg_count; ++i) {
+        TSNode arg_node = ts_node_named_child(args_node, i);
+        StringID actual_type = evaluate_expression(arg_node, func_name);
+        StringID expected_type = sig.parameter_types[i];
+        if (!is_valid(actual_type) || actual_type != expected_type) {
+            report_error(func_name, "Function argument type mismatch");
+            has_error = true;
+        }
+    }
+    if (has_error) {
+        return kInvalidStringID;
+    }
+    // 4. 成功！関数の戻り値型を返す
+    return sig.return_type_id;
+};
 
 } // namespace axiom

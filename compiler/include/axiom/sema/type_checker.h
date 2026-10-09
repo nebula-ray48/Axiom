@@ -127,6 +127,8 @@ private:
 
     void register_function_signature(const FunctionInfo& func);
 
+    StringID evaluate_call(TSNode node, StringID func_name);
+
 };
 
 } // namespace axiom
