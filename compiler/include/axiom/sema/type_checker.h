@@ -22,6 +22,7 @@
 #include <vector>
 #include <string>
 #include <string_view>
+#include <optional>
 #include "axiom/base/compiler.h"
 #include "axiom/base/registry.h"
 #include "axiom/sema/type_system.h"
@@ -51,10 +52,13 @@ public:
     /// @param functions     Analyzer が抽出した関数情報リストへの const 参照
     /// @param type_registry 組み込み型の問い合わせ先
     /// @param interner      StringID → 文字列の変換に使う（エラーメッセージ用）
+    /// @param comp_registry ECSのコンポーネントレジストリ参照
     TypeChecker(std::string_view                 source_code,
                 const std::vector<FunctionInfo>& functions,
                 TypeRegistry&                    type_registry,
-                StringInterner&                  interner);
+                StringInterner&                  interner,
+                const ComponentRegistry_DOD&     comp_registry = kEmptyComponentRegistry
+                );
 
     TypeChecker(const std::vector<FunctionInfo>& functions,
                 TypeRegistry& type_registry,
@@ -69,11 +73,16 @@ public:
     [[nodiscard]] const std::vector<TypeError>& get_errors() const noexcept { return errors_; }
 
 private:
+
+    // TODO テスト用の空のレジストリ
+    inline static const ComponentRegistry_DOD kEmptyComponentRegistry{};
+
     // --- 外部から受け取るデータ（参照のみ、所有権はなし）---
     std::string_view source_;
     const std::vector<FunctionInfo>& functions_;
     TypeRegistry&   type_registry_;
     StringInterner& interner_;
+    const ComponentRegistry_DOD& comp_registry_;
 
     // --- 検査中に状態が変化するデータ ---
     SymbolTable          symbol_table_;  // スコープ管理付きの変数テーブル
@@ -128,6 +137,10 @@ private:
     void register_function_signature(const FunctionInfo& func);
 
     StringID evaluate_call(TSNode node, StringID func_name);
+
+    [[nodiscard]] std::optional<uint32_t> find_component(StringID name_id) const;
+
+    StringID evaluate_member(TSNode node, StringID func_name);
 
 };
 

@@ -28,8 +28,9 @@ namespace axiom {
 TypeChecker::TypeChecker(std::string_view source_code,
                          const std::vector<FunctionInfo>& functions,
                          TypeRegistry& type_registry,
-                         StringInterner& interner)
-    : source_(source_code), functions_(functions), type_registry_(type_registry), interner_(interner) {}
+                         StringInterner& interner,
+                         const ComponentRegistry_DOD& comp_registry)
+    : source_(source_code), functions_(functions), type_registry_(type_registry), interner_(interner), comp_registry_(comp_registry) {}
 
 
 /// エラーを errors_ に追記する内部ユーティリティ。
@@ -381,6 +382,8 @@ StringID TypeChecker::evaluate_expression(TSNode expr_node, StringID func_name) 
         return evaluate_unary(expr_node, func_name);
     } else if (node_type == "call_expression") {
         return evaluate_call(expr_node, func_name);
+    } else if (node_type == "member_expression") {
+        return evaluate_member(expr_node, func_name);
     }
 
     // 未対応の式ノードの場合
@@ -437,8 +440,45 @@ StringID TypeChecker::evaluate_call(TSNode node, StringID func_name) {
     if (has_error) {
         return kInvalidStringID;
     }
-    // 4. 成功！関数の戻り値型を返す
+    // 4.関数の戻り値型を返す
     return sig.return_type_id;
 };
+
+std::optional<uint32_t> TypeChecker::find_component(StringID name_id) const {
+
+    for (uint32_t i = 0; i < comp_registry_.names.size(); ++i) {
+        if (comp_registry_.names[i] == name_id) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
+StringID TypeChecker::evaluate_member(TSNode node, StringID func_name) {
+    TSNode obj_node = ts_node_child_by_field_name(node, "object", 6);
+    TSNode prop_node = ts_node_child_by_field_name(node, "property", 8);
+
+    StringID target_obj_id = get_node_string_id(obj_node);
+    StringID target_prop_id = get_node_string_id(prop_node);
+
+    auto comp_idx = find_component(target_obj_id);
+
+    if (!comp_idx) {
+        report_error(func_name, "Undefined component: " + std::string(interner_.GetString(target_obj_id)));
+        return kInvalidStringID;
+    }
+
+    uint32_t start = comp_registry_.field_starts[*comp_idx];
+    uint32_t count = comp_registry_.field_counts[*comp_idx];
+
+    for (uint32_t i = start; i < start + count; ++i) {
+        if (comp_registry_.field_names[i] == target_prop_id) {
+            return comp_registry_.field_types[i];
+        }
+    }
+
+    report_error(func_name, "Field not found: " + std::string(interner_.GetString(target_prop_id)));
+    return kInvalidStringID;
+}
 
 } // namespace axiom
