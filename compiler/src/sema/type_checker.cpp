@@ -307,21 +307,35 @@ StringID TypeChecker::evaluate_binary(TSNode node, StringID func_name) {
 }
 
 void TypeChecker::check_assignments(StringID func_name, const std::vector<AssignmentInfo>& assignments) {
-    for (const auto assign : assignments) {
-        StringID var_name_id = get_node_string_id(assign.left_node);
+    for (const auto& assign : assignments) {
+        std::string_view left_kind = ts_node_type(assign.left_node);
+        StringID target_type = kInvalidStringID;
 
-        const Symbol* sym = symbol_table_.lookup_symbol(var_name_id);
-        if (!sym) {
-            report_error(func_name, "Undefined variable: " + std::string(interner_.GetString(var_name_id)));
+        if (left_kind == "identifier") {
+            StringID var_name_id = get_node_string_id(assign.left_node);
+
+            const Symbol* sym = symbol_table_.lookup_symbol(var_name_id);
+            if (!sym) {
+                report_error(func_name, "Undefined variable: " + std::string(interner_.GetString(var_name_id)));
+                continue;
+            }
+
+            if (!sym->is_mutable) {
+                report_error(func_name, "Cannot assign to immutable variable: " + std::string(interner_.GetString(var_name_id)));
+            }
+
+            target_type = sym->type_id;
+
+        } else if (left_kind == "member_expression") {
+            target_type = evaluate_member(assign.left_node, func_name);
+
+        } else {
+            report_error(func_name, "Invalid assignment target");
             continue;
         }
 
-        if (!sym->is_mutable) {
-            report_error(func_name, "Cannot assign to immutable variable: " + std::string(interner_.GetString(var_name_id)));
-        }
-
         StringID right_type = evaluate_expression(assign.right_node, func_name);
-        if (is_valid(right_type) && sym->type_id != right_type) {
+        if (is_valid(target_type) && is_valid(right_type) && target_type != right_type) {
             report_error(func_name, "Type mismatch in assignment");
         }
     }

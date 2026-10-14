@@ -1,3 +1,8 @@
+// =============================================================================
+// Axiom Language Showcase (現在実装完了している機能のデモ)
+// =============================================================================
+
+// 1. ECS コンポーネント定義 (DOD レジストリに格納)
 component Position {
     x: float32,
     y: float32,
@@ -8,38 +13,21 @@ component Velocity {
     vy: float32,
 }
 
-// これはテストコメントです。
-entity Monster {
-    Position,
-    Velocity,
-    id: uint32,
-    hp: int32,
-    is_active: bool,
+// 2. 関数定義と型注釈 (引数・戻り値)
+fun is_alive(hp: int32) -> bool {
+    val alive: bool = hp > 0;
+    return alive;
 }
 
-error CombatError {
-    TargetDead,
-    OutOfRange,
-    InvalidAction
+// 3. 算術演算と関数呼び出しの組み合わせ
+fun compute_next_position(current: float32, velocity: float32, delta_time: float32) -> float32 {
+    val distance: float32 = velocity * delta_time;
+    val next_pos: float32 = current + distance;
+    return next_pos;
 }
 
-val max_speed: float32 = 100.0;
-var global_counter: uint64 = 0;
-
-// 配列と SoA / AoS の宣言と初期化
-val scores: [int32; 3] = [100, 200, 300];
-val particles: soa [Position; 1000] = [];
-val vertices: aos [Position; 4] = [];
-
-pub fun check_health(current_hp: int32) -> int32 or CombatError {
-    val is_dead: bool = current_hp <= 0;
-    if is_dead {
-        return error_code;
-    }
-    return current_hp;
-}
-
-fun reset_state() {
+// 4. while ループと変数代入
+fun reset_counter() {
     var timer: int32 = 0;
     while timer < 10 {
         timer = timer + 1;
@@ -47,40 +35,53 @@ fun reset_state() {
     return;
 }
 
-pub fun update_system(delta_time: float32) {
-    forEach Monster where is_active {
-        Position.x = Position.x + Velocity.vx * delta_time;
-        Position.y = Position.y + Velocity.vy * delta_time;
+// 5. ECS メンバアクセス・論理演算・if文の統合
+fun update_physics() {
+    val dt: float32 = 0.016;
 
-        val is_low_hp: bool = hp < 20 and not hp <= 0;
-        val is_boundary_hit: bool = Position.x <= 0.0 or Position.x >= 1920.0;
-        val is_exact_pos: bool = Position.y == 0.0 or Position.y != 100.0;
+    // ECS コンポーネントメンバアクセス (Position.x, Velocity.vx)
+    val cur_x: float32 = Position.x;
+    val cur_y: float32 = Position.y;
+    val vel_x: float32 = Velocity.vx;
+    val vel_y: float32 = Velocity.vy;
 
-        if is_low_hp {
-            hp = 100;
-        }
+    // 関数呼び出し (call_expression) の検証
+    val next_x: float32 = compute_next_position(cur_x, vel_x, dt);
+    val next_y: float32 = compute_next_position(cur_y, vel_y, dt);
 
-        var count: int32 = 0;
-        while count < 3 {
-            count = count + 1;
-        }
+    // 比較演算・論理演算 (and, or, not)
+    val is_in_boundary: bool = next_x >= 0.0 and next_x <= 1920.0;
+    val is_grounded: bool = next_y == 0.0;
+    val is_falling: bool = not is_grounded;
 
-        val half_speed: float32 = max_speed / 2.0;
-        val speed_diff: float32 = max_speed - half_speed;
-
-        val guarded_val = try is_low_hp;
+    // if 文による分岐制御
+    if is_in_boundary {
+        var step: int32 = 0;
+        step = step + 1;
     }
 
-    // 配列のインデックスアクセス
-    val first_score: int32 = scores[0];
-
-    // SoA 配列要素へのアクセスと代入
-    particles[0].x = 10.0;
-
-    // AoS 配列要素へのアクセスと代入
-    vertices[1].y = 20.0;
+    // 別関数の呼び出し
+    val alive: bool = is_alive(100);
 
     return;
 }
 
-val result = check_health(100);
+// =============================================================================
+// 【今後実装予定の構文 (文法定義済み・型検査器は順次拡張中)】
+// =============================================================================
+//
+// entity Monster {
+//     Position,
+//     Velocity,
+//     id: uint32,
+//     hp: int32,
+//     is_active: bool,
+// }
+//
+// val scores: [int32; 3] = [100, 200, 300];
+// val particles: soa [Position; 1000] = [];
+//
+// forEach Monster where is_active {
+//     Position.x = Position.x + Velocity.vx * delta_time;
+//     particles[0].x = 10.0;
+// }

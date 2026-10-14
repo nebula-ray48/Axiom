@@ -1259,3 +1259,108 @@ TEST(TypeCheckerTest, MemberAccessFieldNotFound) {
     ts_parser_delete(parser);
 }
 
+// 代入文（L-Value）：ECS メンバアクセス代入（正常系）
+TEST(TypeCheckerTest, AssignmentMemberAccessValid) {
+    const char* source = R"(
+        fun update() -> void {
+            Position.x = 10.0;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    axiom::ComponentRegistry_DOD comp_reg;
+    comp_reg.names.push_back(interner.Intern("Position"));
+    comp_reg.field_starts.push_back(0);
+    comp_reg.field_counts.push_back(1);
+    comp_reg.field_names.push_back(interner.Intern("x"));
+    comp_reg.field_types.push_back(interner.Intern("float32"));
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
+    EXPECT_TRUE(checker.check_all());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 代入文（L-Value）：ECS メンバアクセス型不一致エラー
+TEST(TypeCheckerTest, AssignmentMemberAccessTypeMismatch) {
+    const char* source = R"(
+        fun update() -> void {
+            Position.x = 100;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    axiom::ComponentRegistry_DOD comp_reg;
+    comp_reg.names.push_back(interner.Intern("Position"));
+    comp_reg.field_starts.push_back(0);
+    comp_reg.field_counts.push_back(1);
+    comp_reg.field_names.push_back(interner.Intern("x"));
+    comp_reg.field_types.push_back(interner.Intern("float32"));
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Type mismatch in assignment") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 代入文（L-Value）：未定義コンポーネントへの代入エラー
+TEST(TypeCheckerTest, AssignmentMemberAccessUndefinedComponent) {
+    const char* source = R"(
+        fun update() -> void {
+            Unknown.x = 10.0;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+    axiom::ComponentRegistry_DOD comp_reg;
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Undefined component") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+
