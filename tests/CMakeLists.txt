@@ -7,9 +7,9 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-add_executable(axiom-test unit/test_compiler.cpp)
+add_executable(axiom-test main.cpp unit/test_compiler.cpp)
 
-target_link_libraries(axiom-test PRIVATE axiom-core GTest::gtest_main)
+target_link_libraries(axiom-test PRIVATE axiom-core GTest::gtest)
 
 set_axiom_warnings(axiom-test)
 

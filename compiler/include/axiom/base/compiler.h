@@ -1,7 +1,7 @@
 // core/include/axiom/compiler.h
 //
 // 【役割】
-//   Nexaコンパイラのコア部品（文字列インターナー・DOD用レジストリ・
+//   Axiomコンパイラのコア部品（文字列インターナー・DOD用レジストリ・
 //   Tree-sitterシンボルキャッシュ）を定義するヘッダー。
 //   コンパイラ全体で最初にインクルードされる "基盤" ファイル。
 //
@@ -9,7 +9,7 @@
 //   StringID    : 文字列を整数IDに変換したもの。文字列比較をO(1)にするため。
 //   DOD         : Data-Oriented Design。メモリ局所性のため、
 //                 「構造体の配列(AoS)」ではなく「配列の構造体(SoA)」で管理する設計。
-//   Tree-sitter : Nexaのパーサーとして使っているインクリメンタルパーサーライブラリ。
+//   Tree-sitter : Axiomのパーサーとして使っているインクリメンタルパーサーライブラリ。
 //                 C APIを持ち、TSNode・TSSymbol・TSFieldId などの型を提供する。
 
 #pragma once

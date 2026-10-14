@@ -1363,4 +1363,90 @@ TEST(TypeCheckerTest, AssignmentMemberAccessUndefinedComponent) {
     ts_parser_delete(parser);
 }
 
+// 配列リテラル：正常系（要素型の一致と型推論）
+TEST(TypeCheckerTest, ArrayLiteralValid) {
+    const char* source = R"(
+        fun main() -> void {
+            val scores = [100, 200, 300];
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(checker.check_all());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 配列リテラル：空配列 []
+TEST(TypeCheckerTest, ArrayLiteralEmpty) {
+    const char* source = R"(
+        fun main() -> void {
+            val empty = [];
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(checker.check_all());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 配列リテラル：要素型不一致エラー
+TEST(TypeCheckerTest, ArrayLiteralElementTypeMismatch) {
+    const char* source = R"(
+        fun main() -> void {
+            val bad = [100, 2.5, 300];
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Array element type mismatch") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+
 

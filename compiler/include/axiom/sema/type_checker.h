@@ -142,6 +142,8 @@ private:
 
     StringID evaluate_member(TSNode node, StringID func_name);
 
+    StringID evaluate_array_literal(TSNode literal_node, StringID func_name);
+
 };
 
 } // namespace axiom

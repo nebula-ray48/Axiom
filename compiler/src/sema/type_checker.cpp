@@ -398,6 +398,8 @@ StringID TypeChecker::evaluate_expression(TSNode expr_node, StringID func_name) 
         return evaluate_call(expr_node, func_name);
     } else if (node_type == "member_expression") {
         return evaluate_member(expr_node, func_name);
+    } else if (node_type == "array_literal") {
+        return evaluate_array_literal(expr_node, func_name);
     }
 
     // 未対応の式ノードの場合
@@ -493,6 +495,38 @@ StringID TypeChecker::evaluate_member(TSNode node, StringID func_name) {
 
     report_error(func_name, "Field not found: " + std::string(interner_.GetString(target_prop_id)));
     return kInvalidStringID;
+}
+
+StringID TypeChecker::evaluate_array_literal(TSNode literal_node, StringID func_name) {
+    uint32_t count = ts_node_named_child_count(literal_node);
+
+    if (count == 0) {
+        return interner_.Intern("[]");
+    }
+
+    TSNode first_node = ts_node_named_child(literal_node, 0);
+    StringID first_type = evaluate_expression(first_node, func_name);
+    if (!is_valid(first_type)) {
+        return kInvalidStringID;
+    }
+
+    for (uint32_t i = 1; i < count; ++i) {
+        TSNode elem_node = ts_node_named_child(literal_node, i);
+        StringID elem_type = evaluate_expression(elem_node, func_name);
+
+        if (!is_valid(elem_type)) {
+            return kInvalidStringID;
+        }
+
+        if (elem_type != first_type) {
+            report_error(func_name, "Array element type mismatch");
+            return kInvalidStringID;
+        }
+    }
+
+    std::string elem_type_str = std::string(interner_.GetString(first_type));
+    std::string array_type_str = "[" + elem_type_str + "; " + std::to_string(count) + "]";
+    return interner_.Intern(array_type_str);
 }
 
 } // namespace axiom

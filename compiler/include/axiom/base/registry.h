@@ -9,7 +9,7 @@
 //   Tree-sitter API に依存せず処理できるようになる。
 //
 // 【データフローでの位置付け】
-//   Nexa ソース
+//   Axiom ソース
 //     → Tree-sitter パース
 //     → Analyzer (analyzer.cpp)       ← ASTを走査してここで定義した構造体に変換
 //     → TypeChecker (type_checker.cpp) ← FunctionInfo を使って型検査

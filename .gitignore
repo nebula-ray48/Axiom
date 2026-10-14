@@ -5,6 +5,8 @@
 /.zed/
 *.swp
 *.swo
+.project
+.cproject
 
 # AI / Agents
 /.agents/

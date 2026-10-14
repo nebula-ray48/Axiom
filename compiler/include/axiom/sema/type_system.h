@@ -1,7 +1,7 @@
 // core/include/axiom/type_system.h
 //
 // 【役割】
-//   Nexa 言語の組み込み型（プリミティブ型）を管理する TypeRegistry クラスを定義する。
+//   Axiom 言語の組み込み型（プリミティブ型）を管理する TypeRegistry クラスを定義する。
 //
 //   コンパイラが扱う型はすべて StringID で表現されるが、
 //   TypeRegistry はその「どの ID が組み込み型か」「int32 の ID は何か」といった
