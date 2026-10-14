@@ -1290,35 +1290,7 @@
     [
       {
         "type": "STRING",
-        "value": "assignment"
-      },
-      {
-        "type": "STRING",
-        "value": "or"
-      },
-      {
-        "type": "STRING",
-        "value": "and"
-      },
-      {
-        "type": "STRING",
-        "value": "compare"
-      },
-      {
-        "type": "STRING",
-        "value": "add"
-      },
-      {
-        "type": "STRING",
-        "value": "multiply"
-      },
-      {
-        "type": "STRING",
-        "value": "not"
-      },
-      {
-        "type": "STRING",
-        "value": "try"
+        "value": "member"
       },
       {
         "type": "STRING",
@@ -1326,7 +1298,35 @@
       },
       {
         "type": "STRING",
-        "value": "member"
+        "value": "try"
+      },
+      {
+        "type": "STRING",
+        "value": "not"
+      },
+      {
+        "type": "STRING",
+        "value": "multiply"
+      },
+      {
+        "type": "STRING",
+        "value": "add"
+      },
+      {
+        "type": "STRING",
+        "value": "compare"
+      },
+      {
+        "type": "STRING",
+        "value": "and"
+      },
+      {
+        "type": "STRING",
+        "value": "or"
+      },
+      {
+        "type": "STRING",
+        "value": "assignment"
       }
     ]
   ],

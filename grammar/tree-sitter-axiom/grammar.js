@@ -8,20 +8,20 @@ module.exports = grammar({
 
     precedences: $ => [
         [
-        'assignment',
-        'or',
-        'and',
-        'compare',
-        'add',
-        'multiply',
-        'not',
-        'try',
-        'call',
-      'member'
+            'member',      // Position.x のようなドット参照
+            'call',        // 関数呼び出し: foo()
+            'try',         // try 式
+            'not',         // 単項演算: not x
+            'multiply',    // 乗除: * , /
+            'add',         // 加減: + , -
+            'compare',     // 比較: < , <= , ==
+            'and',         // 論理積: and
+            'or',          // 論理和: or
+            'assignment'   // 左辺 = 右辺
         ]
     ],
 
-  rules: {
+    rules: {
     source_file: $ => repeat($._declaration),
 
     _declaration: $ => choice(
