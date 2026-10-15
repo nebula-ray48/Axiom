@@ -1572,6 +1572,94 @@ TEST(TypeCheckerTest, IndexAccessTypeMismatch) {
     ts_parser_delete(parser);
 }
 
+// 代入文（L-Value）：配列要素への代入（正常系）
+TEST(TypeCheckerTest, AssignmentIndexAccessValid) {
+    const char* source = R"(
+        fun main() -> void {
+            val scores: [int32; 3] = [100, 200, 300];
+            scores[0] = 999;
+        }
+    )";
 
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
 
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
 
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(checker.check_all());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 代入文（L-Value）：配列要素への型不一致代入エラー
+TEST(TypeCheckerTest, AssignmentIndexAccessTypeMismatch) {
+    const char* source = R"(
+        fun main() -> void {
+            val scores: [int32; 3] = [100, 200, 300];
+            scores[0] = 3.14;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Type mismatch in assignment") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 代入文（L-Value）：配列要素代入時のインデックス非整数エラー
+TEST(TypeCheckerTest, AssignmentIndexAccessNonInteger) {
+    const char* source = R"(
+        fun main() -> void {
+            val scores: [int32; 3] = [100, 200, 300];
+            scores[1.5] = 999;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Array index must be an integer") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}

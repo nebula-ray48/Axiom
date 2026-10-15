@@ -335,6 +335,9 @@ void TypeChecker::check_assignments(StringID func_name, const std::vector<Assign
         } else if (left_kind == "member_expression") {
             target_type = evaluate_member(assign.left_node, func_name);
 
+        } else if (left_kind == "index_expression") {
+            target_type = evaluate_index(assign.left_node, func_name);
+
         } else {
             report_error(func_name, "Invalid assignment target");
             continue;
