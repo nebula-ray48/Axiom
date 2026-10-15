@@ -86,6 +86,7 @@ struct WhileInfo {
 struct AssignmentInfo {
     TSNode left_node;   // 左辺のノード（"hp" などの変数名）
     TSNode right_node;  // 右辺のノード（"100" や "a + b" などの式）
+    TSNode op_node {};
 };
 
 /// return分 型検証

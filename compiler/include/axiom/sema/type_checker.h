@@ -148,6 +148,7 @@ private:
     StringID evaluate_index(TSNode node, StringID func_name);
     
     StringID extract_element_type(StringID array_type_id) const;
+    bool     is_arithmetic_type(StringID type_id) const;
 };
 
 

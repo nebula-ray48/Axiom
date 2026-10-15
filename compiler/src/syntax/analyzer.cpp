@@ -152,10 +152,12 @@ void Analyzer::analyze_block(TSNode block_node, FunctionInfo& current_func) {
             if (std::string_view(ts_node_type(expr)) == "assignment_expression") {
                 TSNode left_node = ts_node_child_by_field_name(expr, "left", 4);
                 TSNode right_node = ts_node_child_by_field_name(expr, "right", 5);
+                TSNode op_node = ts_node_child_by_field_name(expr, "operator", 8);
 
                 AssignmentInfo assign_info;
                 assign_info.left_node = left_node;
                 assign_info.right_node = right_node;
+                assign_info.op_node = op_node;
 
                 current_func.assignments.push_back(assign_info);
             }

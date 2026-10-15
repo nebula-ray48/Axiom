@@ -343,6 +343,14 @@ void TypeChecker::check_assignments(StringID func_name, const std::vector<Assign
             continue;
         }
 
+        std::string_view op = get_node_text(assign.op_node);
+
+        if (op != "=") {
+            if (!is_arithmetic_type(target_type)) {
+                report_error(func_name, "Compound assignment operator requires arithmetic type");
+            }
+        }
+
         StringID right_type = evaluate_expression(assign.right_node, func_name);
         if (is_valid(target_type) && is_valid(right_type) && target_type != right_type) {
             report_error(func_name, "Type mismatch in assignment");
@@ -603,6 +611,12 @@ StringID TypeChecker::extract_element_type(StringID array_type_id) const {
     }
 
     return kInvalidStringID;
+}
+
+bool TypeChecker::is_arithmetic_type(StringID type_id) const {
+    // 整数型 または 浮動小数点型なら true
+    return type_id == type_registry_.get_int32() ||
+           type_id == type_registry_.get_float32();
 }
 
 } // namespace axiom

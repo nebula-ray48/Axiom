@@ -1779,3 +1779,151 @@ TEST(TypeCheckerTest, ParenthesizedExpressionTypeMismatch) {
     ts_parser_delete(parser);
 }
 
+// 複合代入演算子：正常系（変数、メンバアクセス、配列要素）
+TEST(TypeCheckerTest, CompoundAssignmentValid) {
+    const char* source = R"(
+        fun main() -> void {
+            var a: int32 = 10;
+            a += 5;
+            a -= 2;
+            a *= 3;
+            a /= 4;
+
+            var f: float32 = 1.0;
+            f += 2.0;
+            f -= 0.5;
+            f *= 2.0;
+            f /= 1.5;
+
+            Position.x += 10.0;
+            Position.x -= 2.0;
+
+            val scores: [int32; 3] = [10, 20, 30];
+            scores[0] += 5;
+            scores[1] *= 2;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    axiom::ComponentRegistry_DOD comp_reg;
+    comp_reg.names.push_back(interner.Intern("Position"));
+    comp_reg.field_starts.push_back(0);
+    comp_reg.field_counts.push_back(1);
+    comp_reg.field_names.push_back(interner.Intern("x"));
+    comp_reg.field_types.push_back(interner.Intern("float32"));
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
+    EXPECT_TRUE(checker.check_all());
+    EXPECT_TRUE(checker.get_errors().empty());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 複合代入演算子：非算術型への適用エラー（bool += bool）
+TEST(TypeCheckerTest, CompoundAssignmentNonArithmeticError) {
+    const char* source = R"(
+        fun main() -> void {
+            var flag: bool = true;
+            flag += false;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Compound assignment operator requires arithmetic type") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 複合代入演算子：型不一致エラー（int32 += float32）
+TEST(TypeCheckerTest, CompoundAssignmentTypeMismatchError) {
+    const char* source = R"(
+        fun main() -> void {
+            var count: int32 = 10;
+            count += 3.14;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Type mismatch in assignment") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 複合代入演算子：イミュータブル変数への代入エラー
+TEST(TypeCheckerTest, CompoundAssignmentImmutableError) {
+    const char* source = R"(
+        fun main() -> void {
+            val speed: int32 = 100;
+            speed += 10;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Cannot assign to immutable variable") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+

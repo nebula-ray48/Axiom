@@ -26,11 +26,11 @@ fun compute_next_position(current: float32, velocity: float32, delta_time: float
     return next_pos;
 }
 
-// 4. while ループと変数代入
+// 4. while ループと複合代入演算子 (+=, -=, *=, /=)
 fun reset_counter() {
     var timer: int32 = 0;
     while timer < 10 {
-        timer = timer + 1;
+        timer += 1;
     }
     return;
 }
@@ -49,8 +49,9 @@ fun test_array_system() {
     // インデックス参照 (R-Value)
     val first_score: int32 = scores[0];
 
-    // 配列要素への代入 (L-Value)
+    // 配列要素への代入 (L-Value) & 複合代入
     scores[0] = 999;
+    scores[0] += 1;
 
     return;
 }
@@ -65,9 +66,10 @@ fun update_physics() {
     val vel_x: float32 = Velocity.vx;
     val vel_y: float32 = Velocity.vy;
 
-    // ECS コンポーネントメンバへの代入 (L-Value)
+    // ECS コンポーネントメンバへの代入 (L-Value) & 複合代入
     Position.x = 0.0;
     Position.y = 0.0;
+    Position.x += 10.0;
 
     // 関数呼び出し (call_expression) の検証
     val next_x: float32 = compute_next_position(cur_x, vel_x, dt);
