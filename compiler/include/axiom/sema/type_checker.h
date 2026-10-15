@@ -139,11 +139,16 @@ private:
     StringID evaluate_call(TSNode node, StringID func_name);
 
     [[nodiscard]] std::optional<uint32_t> find_component(StringID name_id) const;
+    bool                                  is_array_type(StringID type_id) const;
 
     StringID evaluate_member(TSNode node, StringID func_name);
 
     StringID evaluate_array_literal(TSNode literal_node, StringID func_name);
 
+    StringID evaluate_index(TSNode node, StringID func_name);
+    
+    StringID extract_element_type(StringID array_type_id) const;
 };
+
 
 } // namespace axiom

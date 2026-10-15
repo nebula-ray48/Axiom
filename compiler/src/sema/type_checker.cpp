@@ -144,12 +144,18 @@ void TypeChecker::check_variables(StringID func_name, const std::vector<Variable
         StringID final_type = var.type_id;
 
         if (var.has_explicit_type()) {
-            if (!type_registry_.is_builtin(var.type_id)) {
+            // 組み込み型か、配列型であれば有効な型とする
+            bool is_valid_type = type_registry_.is_builtin(var.type_id) || is_array_type(var.type_id);
+            if (!is_valid_type) {
                 report_error(func_name, "Unknown variable type");
-            } else if (is_valid(expr_type) && var.type_id != expr_type) {
-                report_error(func_name, "Variable type annotation does not match initial value type");
+            } else if (is_valid(expr_type)) {
+                // 右辺が空配列 [] の場合は、配列型への初期化として一致とみなす
+                bool is_empty_array_init = (expr_type == interner_.Intern("[]") && is_array_type(var.type_id));
+                if (var.type_id != expr_type && !is_empty_array_init) {
+                    report_error(func_name, "Variable type annotation does not match initial value type");
+                }
             }
-        } else {
+        }  else {
             // 型省略時は右辺から推論
             final_type = expr_type;
         }
@@ -400,6 +406,8 @@ StringID TypeChecker::evaluate_expression(TSNode expr_node, StringID func_name) 
         return evaluate_member(expr_node, func_name);
     } else if (node_type == "array_literal") {
         return evaluate_array_literal(expr_node, func_name);
+    } else if (node_type == "index_expression") {
+        return evaluate_index(expr_node, func_name);
     }
 
     // 未対応の式ノードの場合
@@ -527,6 +535,68 @@ StringID TypeChecker::evaluate_array_literal(TSNode literal_node, StringID func_
     std::string elem_type_str = std::string(interner_.GetString(first_type));
     std::string array_type_str = "[" + elem_type_str + "; " + std::to_string(count) + "]";
     return interner_.Intern(array_type_str);
+}
+
+bool TypeChecker::is_array_type(StringID type_id) const {
+    std::string_view type_str = interner_.GetString(type_id);
+
+    // 通常の配列: "[int32; 3]"
+    if (type_str.starts_with('[') && type_str.ends_with(']')) {
+        return true;
+    }
+    // SoA / AoS 配列: "soa [Position; 1000]" / "aos [Position; 4]"
+    if ((type_str.starts_with("soa [") || type_str.starts_with("aos [")) && type_str.ends_with(']')) {
+        return true;
+    }
+    return false;
+}
+
+StringID TypeChecker::evaluate_index(TSNode node, StringID func_name) {
+    TSNode array_node = ts_node_child_by_field_name(node, "array", 5);
+    TSNode index_node = ts_node_child_by_field_name(node, "index", 5);
+
+    StringID array_type = evaluate_expression(array_node, func_name);
+    StringID index_type = evaluate_expression(index_node, func_name);
+    if (!is_valid(array_type) || !is_valid(index_type)) {
+        return kInvalidStringID;
+    }
+
+    if (!is_array_type(array_type)) {
+        report_error(func_name, "Cannot index non-array type");
+        return kInvalidStringID;
+    }
+
+    if (index_type != type_registry_.get_int32()) {
+        report_error(func_name, "Array index must be an integer");
+        return kInvalidStringID;
+    }
+
+    return extract_element_type(array_type);
+}
+
+StringID TypeChecker::extract_element_type(StringID array_type_id) const {
+    std::string_view type_str = interner_.GetString(array_type_id);
+
+    // '[' と ';' の位置を見つける
+    size_t start = type_str.find('[');
+    size_t end   = type_str.find(';');
+
+    if (start != std::string_view::npos && end != std::string_view::npos && start < end) {
+        // '[' と ';' の間を切り出す
+        std::string_view elem_view = type_str.substr(start + 1, end - (start + 1));
+
+        // 前後の余分な空白を除去（トリム）
+        while (!elem_view.empty() && elem_view.front() == ' ') {
+            elem_view.remove_prefix(1);
+        }
+        while (!elem_view.empty() && elem_view.back() == ' ') {
+            elem_view.remove_suffix(1);
+        }
+
+        return interner_.Intern(elem_view);
+    }
+
+    return kInvalidStringID;
 }
 
 } // namespace axiom
