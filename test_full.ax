@@ -35,15 +35,39 @@ fun reset_counter() {
     return;
 }
 
-// 5. ECS メンバアクセス・論理演算・if文の統合
+// 5. 配列システム（固定長配列・空配列初期化・SoA配列・インデックス参照・要素代入）
+fun test_array_system() {
+    // 固定長配列の宣言と初期化
+    val scores: [int32; 3] = [100, 200, 300];
+
+    // 空配列初期化（ゼロ初期化）
+    val buffer: [float32; 4] = [];
+
+    // SoA 配列型の宣言
+    val particles: soa [Position; 1000] = [];
+
+    // インデックス参照 (R-Value)
+    val first_score: int32 = scores[0];
+
+    // 配列要素への代入 (L-Value)
+    scores[0] = 999;
+
+    return;
+}
+
+// 6. ECS メンバアクセス・代入・論理演算・if文の統合
 fun update_physics() {
     val dt: float32 = 0.016;
 
-    // ECS コンポーネントメンバアクセス (Position.x, Velocity.vx)
+    // ECS コンポーネントメンバアクセス (R-Value)
     val cur_x: float32 = Position.x;
     val cur_y: float32 = Position.y;
     val vel_x: float32 = Velocity.vx;
     val vel_y: float32 = Velocity.vy;
+
+    // ECS コンポーネントメンバへの代入 (L-Value)
+    Position.x = 0.0;
+    Position.y = 0.0;
 
     // 関数呼び出し (call_expression) の検証
     val next_x: float32 = compute_next_position(cur_x, vel_x, dt);
@@ -78,10 +102,6 @@ fun update_physics() {
 //     is_active: bool,
 // }
 //
-// val scores: [int32; 3] = [100, 200, 300];
-// val particles: soa [Position; 1000] = [];
-//
 // forEach Monster where is_active {
 //     Position.x = Position.x + Velocity.vx * delta_time;
-//     particles[0].x = 10.0;
 // }

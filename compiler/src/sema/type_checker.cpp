@@ -411,6 +411,9 @@ StringID TypeChecker::evaluate_expression(TSNode expr_node, StringID func_name) 
         return evaluate_array_literal(expr_node, func_name);
     } else if (node_type == "index_expression") {
         return evaluate_index(expr_node, func_name);
+    } else if (node_type == "parenthesized_expression") {
+        TSNode inner_expr = ts_node_named_child(expr_node, 0);
+        return evaluate_expression(inner_expr, func_name);
     }
 
     // 未対応の式ノードの場合

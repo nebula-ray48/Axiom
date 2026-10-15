@@ -1663,3 +1663,119 @@ TEST(TypeCheckerTest, AssignmentIndexAccessNonInteger) {
     ts_tree_delete(tree);
     ts_parser_delete(parser);
 }
+
+// 括弧式：算術演算での優先順位制御
+TEST(TypeCheckerTest, ParenthesizedExpressionArithmetic) {
+    const char* source = R"(
+        fun main() -> void {
+            val a: int32 = 10;
+            val b: int32 = 20;
+            val c: int32 = (a + b) * 3;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(checker.check_all());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 括弧式：論理式・否定演算での活用
+TEST(TypeCheckerTest, ParenthesizedExpressionLogical) {
+    const char* source = R"(
+        fun main() -> void {
+            val x: int32 = 5;
+            val flag: bool = not (x > 0 and x < 10);
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(checker.check_all());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 括弧式：多重ネスト
+TEST(TypeCheckerTest, ParenthesizedExpressionNested) {
+    const char* source = R"(
+        fun main() -> void {
+            val res: int32 = ((1 + 2) * (3 + 4));
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(checker.check_all());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 括弧式：型不一致エラーの検出
+TEST(TypeCheckerTest, ParenthesizedExpressionTypeMismatch) {
+    const char* source = R"(
+        fun main() -> void {
+            val res: int32 = (1.5 + 2.5);
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Variable type annotation does not match initial value type") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+

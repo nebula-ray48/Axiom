@@ -90,6 +90,7 @@ module.exports = grammar({
       $.assignment_expression,
       $.binary_expression,
       $.unary_expression,
+          $.parenthesized_expression,
       $.try_expression,
         $.call_expression,
           $.array_literal,
@@ -178,6 +179,7 @@ module.exports = grammar({
 
     identifier: $ => /[a-z_][a-zA-Z0-9_]*/,
     type_identifier: $ => /[A-Z][a-zA-Z0-9_]*/,
-    number: $ => /\d+(\.\d+)?/
+    number: $ => /\d+(\.\d+)?/,
+        parenthesized_expression: $ => seq('(', $._expression, ')'),
   }
 });

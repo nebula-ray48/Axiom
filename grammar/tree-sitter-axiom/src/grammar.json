@@ -644,6 +644,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "parenthesized_expression"
+        },
+        {
+          "type": "SYMBOL",
           "name": "try_expression"
         },
         {
@@ -1277,6 +1281,23 @@
     "number": {
       "type": "PATTERN",
       "value": "\\d+(\\.\\d+)?"
+    },
+    "parenthesized_expression": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_expression"
+        },
+        {
+          "type": "STRING",
+          "value": ")"
+        }
+      ]
     }
   },
   "extras": [
