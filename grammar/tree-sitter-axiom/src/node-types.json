@@ -688,6 +688,20 @@
     "type": "if_statement",
     "named": true,
     "fields": {
+      "alternative": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "block",
+            "named": true
+          },
+          {
+            "type": "if_statement",
+            "named": true
+          }
+        ]
+      },
       "condition": {
         "multiple": false,
         "required": true,
@@ -1461,6 +1475,10 @@
   },
   {
     "type": "component",
+    "named": false
+  },
+  {
+    "type": "else",
     "named": false
   },
   {

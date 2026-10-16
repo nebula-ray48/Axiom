@@ -75,9 +75,21 @@ module.exports = grammar({
       field('body', $.block)
     ),
 
-    if_statement: $ => seq('if', field('condition', $._expression), field('consequence', $.block)),
+        if_statement: $ => prec.right(seq(
+            'if',
+            field('condition', $._expression),
+            field('consequence', $.block),
+            optional(seq(
+                'else',
+                field('alternative', choice(
+                    $.block,
+                    $.if_statement
+                ))
+            ))
+        )),
 
-      while_statement: $ => seq(
+
+        while_statement: $ => seq(
           'while', field('condition', $._expression),
           field('body', $.block)
       ),

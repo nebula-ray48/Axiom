@@ -230,6 +230,17 @@ void Analyzer::analyze_if(TSNode if_node, FunctionInfo& current_func) {
     if (!ts_node_is_null(consequence_node)) {
         analyze_block(consequence_node, current_func);
     }
+
+    TSNode alternative_node = ts_node_child_by_field_name(if_node, "alternative", 11);
+    if (!ts_node_is_null(alternative_node)) {
+        std::string_view alt_type = ts_node_type(alternative_node);
+
+        if (alt_type == "block") {
+            analyze_block(alternative_node, current_func);
+        } else if (alt_type == "if_statement") {
+            analyze_if(alternative_node, current_func);
+        }
+    }
 }
 
 /// while_statement ノードを解析して WhileInfo を追加し、body ブロックを再帰解析する。

@@ -1927,3 +1927,148 @@ TEST(TypeCheckerTest, CompoundAssignmentImmutableError) {
     ts_parser_delete(parser);
 }
 
+// if-else 文：正常系（if ブロックと else ブロックの両方で代入）
+TEST(TypeCheckerTest, IfElseValid) {
+    const char* source = R"(
+        fun main() -> void {
+            var x: int32 = 0;
+            val flag: bool = true;
+            if flag {
+                x = 10;
+            } else {
+                x = 20;
+            }
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(checker.check_all());
+    EXPECT_TRUE(checker.get_errors().empty());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// if - else if - else 文：正常系（多段階条件分岐）
+TEST(TypeCheckerTest, IfElseIfElseValid) {
+    const char* source = R"(
+        fun main() -> void {
+            var res: int32 = 0;
+            val c1: bool = true;
+            val c2: bool = false;
+            if c1 {
+                res = 1;
+            } else if c2 {
+                res = 2;
+            } else {
+                res = 3;
+            }
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(checker.check_all());
+    EXPECT_TRUE(checker.get_errors().empty());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// else if 節：条件式が bool 以外（int32）のエラー検出
+TEST(TypeCheckerTest, IfElseIfConditionTypeError) {
+    const char* source = R"(
+        fun main() -> void {
+            val count: int32 = 10;
+            val flag: bool = true;
+            if flag {
+                var a: int32 = 1;
+            } else if count {
+                var b: int32 = 2;
+            }
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("If condition must be bool") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// else ブロック内：代入の型不一致エラー検出
+TEST(TypeCheckerTest, IfElseBlockAssignmentTypeError) {
+    const char* source = R"(
+        fun main() -> void {
+            var x: int32 = 0;
+            val flag: bool = true;
+            if flag {
+                x = 10;
+            } else {
+                x = 3.14;
+            }
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("Type mismatch in assignment") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+

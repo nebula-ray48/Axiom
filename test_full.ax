@@ -80,10 +80,14 @@ fun update_physics() {
     val is_grounded: bool = next_y == 0.0;
     val is_falling: bool = not is_grounded;
 
-    // if 文による分岐制御
+    // if - else if - else 文による分岐制御
     if is_in_boundary {
         var step: int32 = 0;
-        step = step + 1;
+        step += 1;
+    } else if is_falling {
+        Position.y -= 9.8 * dt;
+    } else {
+        Position.y = 0.0;
     }
 
     // 別関数の呼び出し
