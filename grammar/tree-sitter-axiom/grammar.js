@@ -65,6 +65,8 @@ module.exports = grammar({
       $.forEach_statement,
         $.if_statement,
         $.while_statement,
+        $.break_statement,
+        $.continue_statement,
         $.return_statement,
         $.expression_statement
     ),
@@ -93,6 +95,9 @@ module.exports = grammar({
           'while', field('condition', $._expression),
           field('body', $.block)
       ),
+
+        break_statement: $ => seq('break', ';'),
+        continue_statement: $ => seq('continue', ';'),
 
     return_statement: $ => seq('return', optional($._expression), ';'),
 

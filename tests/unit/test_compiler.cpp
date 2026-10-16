@@ -2072,3 +2072,146 @@ TEST(TypeCheckerTest, IfElseBlockAssignmentTypeError) {
     ts_parser_delete(parser);
 }
 
+// ループ制御文：正常系（while ループ内での break と continue）
+TEST(TypeCheckerTest, LoopControlValid) {
+    const char* source = R"(
+        fun main() -> void {
+            var timer: int32 = 0;
+            val running: bool = true;
+            val flag: bool = true;
+            while running {
+                if flag {
+                    break;
+                }
+                timer += 1;
+                continue;
+            }
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(checker.check_all());
+    EXPECT_TRUE(checker.get_errors().empty());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// ループ制御文：ループ外での break エラー検出
+TEST(TypeCheckerTest, LoopControlBreakOutsideLoopError) {
+    const char* source = R"(
+        fun main() -> void {
+            break;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("break statement outside of loop") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// ループ制御文：ループ外（if 文内）での continue エラー検出
+TEST(TypeCheckerTest, LoopControlContinueOutsideLoopError) {
+    const char* source = R"(
+        fun main() -> void {
+            val flag: bool = true;
+            if flag {
+                continue;
+            }
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_TRUE(errors[0].message.find("continue statement outside of loop") != std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// ループ制御文：forEach ループ内での break エラー検出
+TEST(TypeCheckerTest, LoopControlBreakInsideForEachError) {
+    const char* source = R"(
+        fun main() -> void {
+            forEach Monster {
+                break;
+            }
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_FALSE(errors.empty());
+
+    bool found_expected_error = false;
+    for (const auto& err : errors) {
+        if (err.message.find("break is not allowed inside forEach loop") != std::string::npos) {
+            found_expected_error = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_expected_error);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+

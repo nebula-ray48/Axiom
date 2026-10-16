@@ -46,6 +46,9 @@ private:
     StringInterner&  interner_;       // StringID への変換用
     std::vector<FunctionInfo> functions_;  // 解析結果の蓄積先
 
+    uint32_t while_depth_   = 0; // 現在潜っている while ループの深さ
+    uint32_t foreach_depth_ = 0; // 現在潜っている forEach ループの深さ
+
     /// TSNode が対応するソーステキストを StringID に変換するヘルパー。
     /// ノードが null なら kInvalidStringID を返す。
     StringID get_node_string_id(TSNode node);

@@ -139,7 +139,7 @@ private:
     StringID evaluate_call(TSNode node, StringID func_name);
 
     [[nodiscard]] std::optional<uint32_t> find_component(StringID name_id) const;
-    bool                                  is_array_type(StringID type_id) const;
+    [[nodiscard]] bool                    is_array_type(StringID type_id) const;
 
     StringID evaluate_member(TSNode node, StringID func_name);
 
@@ -148,7 +148,9 @@ private:
     StringID evaluate_index(TSNode node, StringID func_name);
     
     StringID extract_element_type(StringID array_type_id) const;
-    bool     is_arithmetic_type(StringID type_id) const;
+    [[nodiscard]] bool     is_arithmetic_type(StringID type_id) const;
+
+    void check_loop_controls(StringID func_name, const std::vector<LoopControlInfo>& loop_controls);
 };
 
 

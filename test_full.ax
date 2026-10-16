@@ -1,5 +1,11 @@
 // =============================================================================
 // Axiom Language Showcase (現在実装完了している機能のデモ)
+// - ECS コンポーネント (DOD)
+// - 関数定義・引数・戻り値
+// - 算術・論理・比較・括弧式
+// - 複合代入演算子 (+=, -=, *=, /=)
+// - 配列システム (固定長、SoA、インデックスアクセス)
+// - 制御構文 (if-else if-else, while, break, continue)
 // =============================================================================
 
 // 1. ECS コンポーネント定義 (DOD レジストリに格納)
@@ -26,11 +32,20 @@ fun compute_next_position(current: float32, velocity: float32, delta_time: float
     return next_pos;
 }
 
-// 4. while ループと複合代入演算子 (+=, -=, *=, /=)
+// 4. while ループ、複合代入演算子、ループ制御文 (break, continue)
 fun reset_counter() {
     var timer: int32 = 0;
-    while timer < 10 {
+    val running: bool = true;
+    while running {
         timer += 1;
+        val is_half: bool = timer == 5;
+        if is_half {
+            continue;
+        }
+        val is_done: bool = timer >= 10;
+        if is_done {
+            break;
+        }
     }
     return;
 }

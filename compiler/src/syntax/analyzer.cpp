@@ -137,6 +137,13 @@ void Analyzer::analyze_block(TSNode block_node, FunctionInfo& current_func) {
             }
             current_func.for_each_loops.push_back(std::move(loop_info));
 
+            TSNode body_node = ts_node_child_by_field_name(statement, "body", 4);
+            if (!ts_node_is_null(body_node)) {
+                foreach_depth_++;
+                analyze_block(body_node, current_func);
+                foreach_depth_--;
+            }
+
         } else if (type == "if_statement") {
             analyze_if(statement, current_func);
 
@@ -168,7 +175,15 @@ void Analyzer::analyze_block(TSNode block_node, FunctionInfo& current_func) {
                 return_info.value_node = expr;
             }
             current_func.return_statements.push_back(return_info);
+        }  else if (type == "break_statement" || type == "continue_statement") {
+            LoopControlInfo info;
+            info.node = statement;
+            info.is_break = (type == "break_statement");
+            info.in_while_loop = (while_depth_ > 0);
+            info.in_foreach_loop = (foreach_depth_ > 0);
+            current_func.loop_controls.push_back(info);
         }
+
     }
 }
 
@@ -260,8 +275,11 @@ void Analyzer::analyze_while(TSNode while_node, FunctionInfo& current_func) {
     // ループ本体のブロックを再帰解析
     TSNode body_node = ts_node_child_by_field_name(while_node, "body", 4);
     if (!ts_node_is_null(body_node)) {
+        while_depth_++;
         analyze_block(body_node, current_func);
+        while_depth_--;
     }
+
 }
 
 /// parameter_list ノードを走査し、各 parameter ノードから ParameterInfo を生成する。

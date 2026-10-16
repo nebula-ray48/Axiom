@@ -82,6 +82,14 @@ struct WhileInfo {
     StringID condition_id;  // 条件式に使われている変数名のID
 };
 
+/// break / continue 文 1つ分の情報
+struct LoopControlInfo {
+    TSNode node {};           // ASTノード（エラー報告の位置用）
+    bool is_break { true };   // true: break, false: continue
+    bool in_while_loop { false };   // while ループ内に存在するか
+    bool in_foreach_loop { false }; // forEach ループ内に存在するか
+};
+
 /// 代入文 1つ分の情報
 struct AssignmentInfo {
     TSNode left_node;   // 左辺のノード（"hp" などの変数名）
@@ -118,6 +126,7 @@ struct FunctionInfo {
     std::vector<VariableInfo>  variables;       // 関数内の変数宣言一覧
     std::vector<AssignmentInfo> assignments;    // 変数の代入チェック
     std::vector<ReturnInfo> return_statements;
+    std::vector<LoopControlInfo> loop_controls;  // 関数内の break / continue 一覧
 };
 
 } // namespace axiom

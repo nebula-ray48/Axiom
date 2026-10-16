@@ -120,6 +120,7 @@ void TypeChecker::check_function(const FunctionInfo& func) {
     check_for_each_loops(func.name_id, func.for_each_loops);
     check_if_statements(func.name_id, func.if_statements);
     check_while_loops(func.name_id, func.while_loops);
+    check_loop_controls(func.name_id, func.loop_controls);
     check_assignments(func.name_id, func.assignments);
     check_return_statements(func.name_id, func.return_type_id, func.return_statements);
 
@@ -617,6 +618,18 @@ bool TypeChecker::is_arithmetic_type(StringID type_id) const {
     // 整数型 または 浮動小数点型なら true
     return type_id == type_registry_.get_int32() ||
            type_id == type_registry_.get_float32();
+}
+
+void TypeChecker::check_loop_controls(StringID func_name, const std::vector<LoopControlInfo>& loop_controls) {
+    for (const auto& ctrl : loop_controls) {
+        std::string stmt_name = ctrl.is_break ? "break" : "continue";
+
+        if (!ctrl.in_while_loop && !ctrl.in_foreach_loop) {
+            report_error(func_name, stmt_name + " statement outside of loop");
+        } else if (ctrl.in_foreach_loop && ctrl.is_break) {
+            report_error(func_name, "break is not allowed inside forEach loop");
+        }
+    }
 }
 
 } // namespace axiom
