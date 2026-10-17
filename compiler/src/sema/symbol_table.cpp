@@ -20,8 +20,6 @@
 
 #include "axiom/sema/symbol_table.h"
 
-#include <__ranges/reverse_view.h>
-
 #include <ranges>
 
 namespace axiom {

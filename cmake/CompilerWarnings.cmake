@@ -19,6 +19,8 @@ function(set_axiom_warnings target_name)
     set(MSVC_WARNINGS
             /W4
             /permissive-
+            /utf-8
+            /Zc:__cplusplus
     )
 
     if(MSVC)
