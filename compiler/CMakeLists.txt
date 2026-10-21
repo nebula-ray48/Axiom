@@ -23,6 +23,7 @@ endif()
 # -------------------------------------------------------------
 set(AXIOM_CORE_HEADERS
     include/axiom/base/compiler.h
+    include/axiom/base/diagnostic.h
     include/axiom/base/registry.h
     include/axiom/syntax/analyzer.h
     include/axiom/sema/type_system.h
@@ -30,7 +31,9 @@ set(AXIOM_CORE_HEADERS
     include/axiom/sema/type_checker.h
     include/axiom/ir/ir.h
     include/axiom/ir/ir_builder.h
-        include/axiom/codegen/c99_codegen.h
+    include/axiom/ir/ir_printer.h
+    include/axiom/ir/ir_verifier.h
+    include/axiom/codegen/c99_codegen.h
 )
 
 set(AXIOM_CORE_SOURCES
@@ -39,7 +42,9 @@ set(AXIOM_CORE_SOURCES
     src/sema/symbol_table.cpp
     src/sema/type_checker.cpp
     src/ir/ir_builder.cpp
-        src/codegen/c99_codegen.cpp
+    src/ir/ir_printer.cpp
+    src/ir/ir_verifier.cpp
+    src/codegen/c99_codegen.cpp
 )
 
 add_library(axiom-core STATIC

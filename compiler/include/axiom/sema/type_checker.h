@@ -24,18 +24,12 @@
 #include <string_view>
 #include <optional>
 #include "axiom/base/compiler.h"
+#include "axiom/base/diagnostic.h"
 #include "axiom/base/registry.h"
 #include "axiom/sema/type_system.h"
 #include "axiom/sema/symbol_table.h"
 
 namespace axiom {
-
-/// 型エラーの情報を保持するフラットな構造体。
-/// エラー発生時に errors_ ベクタに push_back される。
-struct TypeError {
-    StringID    function_name_id;  // どの関数でエラーが起きたかの StringID
-    std::string message;           // 人間可読のエラーメッセージ（関数名付き）
-};
 
 /// 意味解析フェーズの型検査クラス。
 ///

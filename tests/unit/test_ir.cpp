@@ -4,6 +4,8 @@
 #include "axiom/base/compiler.h"
 #include "axiom/ir/ir.h"
 #include "axiom/ir/ir_builder.h"
+#include "axiom/ir/ir_printer.h"
+#include "axiom/ir/ir_verifier.h"
 
 using namespace axiom;
 using namespace axiom::ir;
@@ -184,5 +186,76 @@ TEST(IrBuilderTest, CompoundAssignment) {
 
     EXPECT_EQ(func.instructions[4].op, IrOpcode::Return);
     EXPECT_EQ(func.instructions[4].src1.reg, 0U);
+}
+
+TEST(IrBuilderTest, DumpIrNamedAndNumberedModes) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun add(a: int32, b: int32) -> int32 {
+            val res: int32 = a + b;
+            return res;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+
+    // 1. 名前モード（%a, %b, %res, 一時値は %3）
+    const std::string expected_named =
+        "fun add(%a: i32, %b: i32) -> i32 {\n"
+        "  alloca %res: i32\n"
+        "  %3: i32 = add %a: i32, %b: i32\n"
+        "  %res: i32 = assign %3: i32\n"
+        "  ret %res: i32\n"
+        "}\n";
+    EXPECT_EQ(dump_ir(module, &interner, true), expected_named);
+
+    // 2. 番号モード（すべて %0, %1, %2, %3）
+    const std::string expected_numbered =
+        "fun add(%0: i32, %1: i32) -> i32 {\n"
+        "  alloca %2: i32\n"
+        "  %3: i32 = add %0: i32, %1: i32\n"
+        "  %2: i32 = assign %3: i32\n"
+        "  ret %2: i32\n"
+        "}\n";
+    EXPECT_EQ(dump_ir(module, &interner, false), expected_numbered);
+}
+
+TEST(IrBuilderTest, VerifierPassesValidIrAndDetectsCorruptedIr) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun add(a: int32, b: int32) -> int32 {
+            val res: int32 = a + b;
+            return res;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+
+    // 1. 正常な IR はエラーゼロで通過する
+    EXPECT_TRUE(verify_module(module, &interner).empty());
+
+    // 2. 境界外の RegId を持つ不正な Alloca 命令を追加すると検出される
+    IrFunction bad_reg_func = module.functions[0];
+    bad_reg_func.instructions.push_back(IrInstruction{
+        .op = IrOpcode::Alloca,
+        .dest = IrOperand::MakeVar(99U, IrType::I32)
+    });
+    auto reg_errors = verify_function(bad_reg_func, &interner);
+    ASSERT_EQ(reg_errors.size(), 1U);
+    EXPECT_NE(reg_errors[0].message.find("out of bounds"), std::string::npos);
+
+    // 3. reg_types と reg_names の要素数が不一致の場合に即座に検出される
+    IrFunction bad_soa_func = module.functions[0];
+    bad_soa_func.reg_names.pop_back();
+    auto soa_errors = verify_function(bad_soa_func, &interner);
+    ASSERT_EQ(soa_errors.size(), 1U);
+    EXPECT_NE(soa_errors[0].message.find("mismatch"), std::string::npos);
+
+    // 4. 非 void 関数で空の Return を行った場合に検出される
+    IrFunction bad_ret_func = module.functions[0];
+    bad_ret_func.instructions.back().src1 = IrOperand::MakeNone();
+    auto ret_errors = verify_function(bad_ret_func, &interner);
+    ASSERT_EQ(ret_errors.size(), 1U);
+    EXPECT_NE(ret_errors[0].message.find("must return a value"), std::string::npos);
 }
 

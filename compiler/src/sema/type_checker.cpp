@@ -38,11 +38,7 @@ TypeChecker::TypeChecker(std::string_view source_code,
 /// 例: func_id="update", message="Unknown return type"
 ///     → "update: Unknown return type" として格納される
 void TypeChecker::report_error(StringID func_id, std::string_view message) {
-
-    std::string func_name = std::string(interner_.GetString(func_id));
-    std::string full_message = func_name + ": " + std::string(message);
-
-    errors_.push_back(TypeError{ .function_name_id=func_id, .message=full_message });
+    axiom::report_error(errors_, func_id, message, &interner_);
 }
 
 void TypeChecker::register_function_signature(const FunctionInfo& func) {
