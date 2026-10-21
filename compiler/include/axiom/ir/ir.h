@@ -7,6 +7,9 @@
 
 namespace axiom::ir {
 
+using RegId = uint32_t;
+using LabelId = uint32_t;
+
 /// 命令の種類（1バイトの識別子）
 enum class IrOpcode : uint8_t {
     Alloca, // 変数の枠を確保

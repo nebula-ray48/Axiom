@@ -50,17 +50,27 @@ Nexa is currently built using C++23 and CMake.
 ```bash
 git clone https://github.com/yourusername/nexa.git
 cd nexa
-mkdir build && cd build
-cmake ..
-cmake --build .
+
+# Configure and build using CMake Presets
+cmake --preset default
+cmake --build --preset default
 ```
 
 ### Testing
 
-Axiom uses Google Test for its robust Test-Driven Development (TDD) environment.
+Axiom uses Google Test and CTest for its Test-Driven Development (TDD) environment.
 
 ```bash
-./tests/nexa-test
+# Quick build & test runner script (auto-configures if needed)
+./scripts/shell/test.sh
+
+# Run a specific test suite or filter
+./scripts/shell/test.sh IrBuilder
+./scripts/shell/test.sh C99CodeGen
+
+# Or run via CTest / test binary directly
+ctest --preset default
+./build/tests/axiom-test
 ```
 
 --- 

@@ -30,6 +30,7 @@ set(AXIOM_CORE_HEADERS
     include/axiom/sema/type_checker.h
     include/axiom/ir/ir.h
     include/axiom/ir/ir_builder.h
+        include/axiom/codegen/c99_codegen.h
 )
 
 set(AXIOM_CORE_SOURCES
@@ -38,6 +39,7 @@ set(AXIOM_CORE_SOURCES
     src/sema/symbol_table.cpp
     src/sema/type_checker.cpp
     src/ir/ir_builder.cpp
+        src/codegen/c99_codegen.cpp
 )
 
 add_library(axiom-core STATIC

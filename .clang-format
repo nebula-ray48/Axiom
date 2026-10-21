@@ -17,9 +17,9 @@ Cpp11BracedListStyle: true
 SpaceBeforeCpp11BracedList: false
 
 AllowShortIfStatementsOnASingleLine: WithoutElse
-AllowShortFunctionsOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Inline
 AllowShortLoopsOnASingleLine: false
-AllowShortCaseLabelsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true
 AllowShortLambdasOnASingleLine: Inline
 
 AlignConsecutiveDeclarations: Consecutive
@@ -41,13 +41,13 @@ FixNamespaceComments: true
 SortIncludes: CaseSensitive
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex:           '^<(nlohmann/json\.hpp|fastgltf/.*\.hpp)>'
+  - Regex:           '^<([a-z_]+|c[a-z]+|[a-z_]+\.h)>$'
     Priority:        1
     SortPriority:    1
-  - Regex:           '^<[a-z_]+>$'
+  - Regex:           '^[<"](tree_sitter|gtest)/.*[>"]$'
     Priority:        2
     SortPriority:    2
-  - Regex:           '^"(common|include)/'
+  - Regex:           '^"axiom/.*"'
     Priority:        3
     SortPriority:    3
   - Regex:           '^".*"$'

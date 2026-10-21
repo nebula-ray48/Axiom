@@ -11,6 +11,7 @@ add_executable(axiom-test
     main.cpp
     unit/test_compiler.cpp
     unit/test_ir.cpp
+    unit/test_c99_codegen.cpp
 )
 
 target_link_libraries(axiom-test PRIVATE

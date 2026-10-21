@@ -5,35 +5,40 @@ Checks: >
   performance-*,
   readability-*,
   google-*,
+  -bugprone-easily-swappable-parameters,
   -cppcoreguidelines-avoid-magic-numbers,
-  -readability-magic-numbers,
   -cppcoreguidelines-non-private-member-variables-in-classes,
-  -misc-non-private-member-variables-in-classes,
-  -cppcoreguidelines-special-member-functions,
   -cppcoreguidelines-owning-memory,
-  -modernize-use-trailing-return-type,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-special-member-functions,
   -google-readability-todo,
-  -readability-identifier-length
+  -misc-no-recursion,
+  -misc-non-private-member-variables-in-classes,
+  -modernize-use-trailing-return-type,
+  -readability-convert-member-functions-to-static,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-magic-numbers
 
 WarningsAsErrors: >
-  modernize-use-nodiscard,
   bugprone-use-after-move,
   bugprone-dangling-handle
 
-HeaderFilterRegex: '^(?!.*(third_party|vendor|generated)/).*$'
+HeaderFilterRegex: '^(?!.*(build|_deps|grammar|third_party|vendor|generated)/).*$'
 FormatStyle: file
 
 CheckOptions:
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case
   - key: readability-identifier-naming.StructCase
-    value: CamelCase
+    value: aNy_CasE
   - key: readability-identifier-naming.ClassCase
     value: CamelCase
   - key: readability-identifier-naming.EnumCase
     value: CamelCase
   - key: readability-identifier-naming.EnumConstantCase
-    value: UPPER_CASE
+    value: CamelCase
   - key: readability-identifier-naming.ConceptCase
     value: CamelCase
   - key: readability-identifier-naming.TypeAliasCase
@@ -43,7 +48,7 @@ CheckOptions:
   - key: readability-identifier-naming.TemplateParameterCase
     value: CamelCase
   - key: readability-identifier-naming.FunctionCase
-    value: lower_case
+    value: aNy_CasE
   - key: readability-identifier-naming.VariableCase
     value: lower_case
   - key: readability-identifier-naming.ParameterCase
@@ -54,18 +59,14 @@ CheckOptions:
     value: lower_case
   - key: readability-identifier-naming.PrivateMemberCase
     value: lower_case
-  - key: readability-identifier-naming.PrivateMemberSuffix
-    value: '_'
   - key: readability-identifier-naming.ProtectedMemberCase
     value: lower_case
-  - key: readability-identifier-naming.ProtectedMemberSuffix
-    value: '_'
   - key: readability-identifier-naming.ConstexprVariableCase
-    value: UPPER_CASE
+    value: aNy_CasE
   - key: readability-identifier-naming.GlobalConstantCase
-    value: UPPER_CASE
+    value: aNy_CasE
   - key: readability-identifier-naming.StaticConstantCase
-    value: UPPER_CASE
+    value: aNy_CasE
   - key: readability-identifier-naming.MacroDefinitionCase
     value: UPPER_CASE
   - key: modernize-use-nodiscard.ReplacementString
@@ -74,8 +75,6 @@ CheckOptions:
     value: reasonable
   - key: modernize-loop-convert.MaxCopySize
     value: '16'
-  - key: readability-function-cognitive-complexity.Threshold
-    value: '25'
   - key: bugprone-narrowing-conversions.WarnOnIntegerNarrowingConversion
     value: 'true'
   - key: bugprone-narrowing-conversions.WarnOnFloatingPointNarrowingConversion

@@ -45,17 +45,27 @@ val hp: i32 = 100;
 ```bash
 git clone https://github.com/yourusername/nexa.git
 cd nexa
-mkdir build && cd build
-cmake ..
-cmake --build .
+
+# CMake Presets を使用して構成・ビルド
+cmake --preset default
+cmake --build --preset default
 ```
 
 ### テストの実行
 
-堅牢なコンパイラを構築するため、Google Testを用いたテスト駆動開発（TDD）を導入しています。
+堅牢なコンパイラを構築するため、Google Test および CTest を用いたテスト駆動開発（TDD）を導入しています。
 
 ```bash
-./tests/nexa-test
+# ビルド＆テスト一括実行スクリプト（初回は自動で Configure も実行）
+./scripts/shell/test.sh
+
+# 特定のテストのみフィルタ実行
+./scripts/shell/test.sh IrBuilder
+./scripts/shell/test.sh C99CodeGen
+
+# CTest またはテストバイナリを直接実行する場合
+ctest --preset default
+./build/tests/axiom-test
 ```
 
 ---
