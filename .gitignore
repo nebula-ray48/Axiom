@@ -12,6 +12,7 @@
 /.agents/
 
 # Personal / Planning Notes
+/HANDOFF.md
 /*コンパイラのDODパイプライン.md
 /Phase 2*.md
 /メモ.md

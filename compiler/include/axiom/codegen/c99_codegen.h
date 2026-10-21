@@ -14,13 +14,13 @@ public:
 
 private:
     const StringInterner& interner_;
-    // 型名変換: "int32" ➔ "int32_t"
-    [[nodiscard]] std::string map_type(StringID type_id) const;
-    // オペランド変換: %0 ➔ _t0, 10 ➔ 10, res ➔ res
-    [[nodiscard]] std::string format_operand(const ir::IrOperand& op) const;
+    // 型名変換: IrType::I32 ➔ "int32_t"
+    [[nodiscard]] static std::string map_type(ir::IrType type);
+    // オペランド変換: RegId ➔ 変数名 または _t<reg>
+    [[nodiscard]] std::string format_operand(const ir::IrFunction& func, const ir::IrOperand& op) const;
     // 1つの関数、1つの命令を出力するヘルパー
     void generate_function(const ir::IrFunction& func, std::string& out);
-    void generate_instruction(const ir::IrInstruction& inst, std::string& out);
+    void generate_instruction(const ir::IrFunction& func, const ir::IrInstruction& inst, std::string& out);
 
 };
 

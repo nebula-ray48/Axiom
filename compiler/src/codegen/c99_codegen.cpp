@@ -8,52 +8,43 @@ namespace axiom {
 C99CodeGen::C99CodeGen(const StringInterner& interner)
     : interner_(interner) {}
 
-std::string C99CodeGen::map_type(StringID type_id) const {
-    if (type_id == kInvalidStringID) {
-        return "void";
+std::string C99CodeGen::map_type(ir::IrType type) {
+    switch (type) {
+        case ir::IrType::I8:   return "int8_t";
+        case ir::IrType::I16:  return "int16_t";
+        case ir::IrType::I32:  return "int32_t";
+        case ir::IrType::I64:  return "int64_t";
+        case ir::IrType::U8:   return "uint8_t";
+        case ir::IrType::U16:  return "uint16_t";
+        case ir::IrType::U32:  return "uint32_t";
+        case ir::IrType::U64:  return "uint64_t";
+        case ir::IrType::F32:  return "float";
+        case ir::IrType::F64:  return "double";
+        case ir::IrType::Bool: return "bool";
+        case ir::IrType::Void:
+        case ir::IrType::Unknown:
+        default:               return "void";
     }
-
-    std::string_view name = interner_.GetString(type_id);
-
-    if (name == "int8")    return "int8_t";
-    if (name == "int16")   return "int16_t";
-    if (name == "int32")   return "int32_t";
-    if (name == "int64")   return "int64_t";
-    if (name == "uint8")   return "uint8_t";
-    if (name == "uint16")  return "uint16_t";
-    if (name == "uint32")  return "uint32_t";
-    if (name == "uint64")  return "uint64_t";
-    if (name == "float32") return "float";
-    if (name == "float64") return "double";
-    if (name == "bool")    return "bool";
-    if (name == "void")    return "void";
-
-    return std::string(name);
 }
 
-std::string C99CodeGen::format_operand(const ir::IrOperand& op) const {
+std::string C99CodeGen::format_operand(const ir::IrFunction& func, const ir::IrOperand& op) const {
     if (op.kind == ir::IrOperandKind::Constant) {
         return std::to_string(op.constant_int);
     }
     if (op.kind == ir::IrOperandKind::Variable) {
-        return std::string(interner_.GetString(op.id));
+        return std::string(interner_.GetString(func.reg_names[op.reg]));
     }
     if (op.kind == ir::IrOperandKind::Temporary) {
-        std::string_view name = interner_.GetString(op.id);
-        // C言語の識別子として有効にするため、先頭の '%' を '_t' に置換（%0 -> _t0）
-        if (name.starts_with('%')) {
-            return "_t" + std::string(name.substr(1));
-        }
-        return std::string(name);
+        return "_t" + std::to_string(op.reg);
     }
     return "";
 }
 
-void C99CodeGen::generate_instruction(const ir::IrInstruction& inst, std::string& out) {
+void C99CodeGen::generate_instruction(const ir::IrFunction& func, const ir::IrInstruction& inst, std::string& out) {
     if (inst.op == ir::IrOpcode::Alloca) {
-        out += "    " + map_type(inst.dest.type_id) + " " + format_operand(inst.dest) + ";\n";
+        out += "    " + map_type(inst.dest.type) + " " + format_operand(func, inst.dest) + ";\n";
     } else if (inst.op == ir::IrOpcode::Assign) {
-        out += "    " + format_operand(inst.dest) + " = " + format_operand(inst.src1) + ";\n";
+        out += "    " + format_operand(func, inst.dest) + " = " + format_operand(func, inst.src1) + ";\n";
     } else if (inst.op == ir::IrOpcode::Add || inst.op == ir::IrOpcode::Sub ||
                inst.op == ir::IrOpcode::Mul || inst.op == ir::IrOpcode::Div) {
         std::string_view op_sym = "+";
@@ -62,11 +53,11 @@ void C99CodeGen::generate_instruction(const ir::IrInstruction& inst, std::string
         else if (inst.op == ir::IrOpcode::Mul) op_sym = "*";
         else if (inst.op == ir::IrOpcode::Div) op_sym = "/";
 
-        out += "    " + map_type(inst.dest.type_id) + " " + format_operand(inst.dest) + " = "
-            + format_operand(inst.src1) + " " + std::string(op_sym) + " " + format_operand(inst.src2) + ";\n";
+        out += "    " + map_type(inst.dest.type) + " " + format_operand(func, inst.dest) + " = "
+            + format_operand(func, inst.src1) + " " + std::string(op_sym) + " " + format_operand(func, inst.src2) + ";\n";
     } else if (inst.op == ir::IrOpcode::Return) {
         if (inst.src1.kind != ir::IrOperandKind::None) {
-            out += "    return " + format_operand(inst.src1) + ";\n";
+            out += "    return " + format_operand(func, inst.src1) + ";\n";
         } else {
             out += "    return;\n";
         }
@@ -74,7 +65,7 @@ void C99CodeGen::generate_instruction(const ir::IrInstruction& inst, std::string
 }
 
 void C99CodeGen::generate_function(const ir::IrFunction& func, std::string& out) {
-    out += map_type(func.return_type_id) + " " + std::string(interner_.GetString(func.name_id)) + "(";
+    out += map_type(func.return_type) + " " + std::string(interner_.GetString(func.name_id)) + "(";
 
     if (func.parameters.empty()) {
         out += "void";
@@ -83,7 +74,7 @@ void C99CodeGen::generate_function(const ir::IrFunction& func, std::string& out)
             if (i > 0) {
                 out += ", ";
             }
-            out += map_type(func.parameters[i].type_id) + " "
+            out += map_type(func.parameters[i].type) + " "
                 + std::string(interner_.GetString(func.parameters[i].name_id));
         }
     }
@@ -91,7 +82,7 @@ void C99CodeGen::generate_function(const ir::IrFunction& func, std::string& out)
     out += ") {\n";
 
     for (const auto& inst : func.instructions) {
-        generate_instruction(inst, out);
+        generate_instruction(func, inst, out);
     }
 
     out += "}\n\n";

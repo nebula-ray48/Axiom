@@ -2,11 +2,11 @@
 
 #include <cstdint>
 #include <string_view>
+#include <unordered_map>
+#include <tree_sitter/api.h>
 
 #include "axiom/base/compiler.h"
 #include "axiom/ir/ir.h"
-
-#include <tree_sitter/api.h>
 
 namespace axiom::ir {
 class IrBuilder {
@@ -18,7 +18,7 @@ public:
 private:
     std::string_view source_;
     StringInterner& interner_;
-    uint32_t temp_counter_ { 0 };
+    std::unordered_map<StringID, RegId> local_vars_;
 
     IrFunction build_function(TSNode func_node);
 
@@ -28,13 +28,15 @@ private:
 
     IrOperand build_expression(TSNode expr_node, IrFunction& current_func);
 
-    IrOperand allocate_temp(StringID type_id);
+    static IrOperand allocate_temp(IrFunction& func, IrType type);
 
     [[nodiscard]] std::string_view get_node_text(TSNode node) const;
 
     [[nodiscard]] TSNode child_by_field(TSNode node, std::string_view name) const;
 
     StringID field_id(TSNode node, std::string_view field_name, std::string_view fallback = "");
+
+    [[nodiscard]] IrType field_type(TSNode node, std::string_view field_name, IrType fallback = IrType::Unknown) const;
 
     void emit(IrFunction& func, IrOpcode op,
               IrOperand dest = IrOperand::MakeNone(),

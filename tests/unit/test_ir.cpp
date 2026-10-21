@@ -48,46 +48,53 @@ TEST(IrBuilderTest, SimpleAdditionAndReturn) {
     const IrFunction& func = module.functions[0];
 
     EXPECT_EQ(interner.GetString(func.name_id), "add");
-    EXPECT_EQ(interner.GetString(func.return_type_id), "int32");
+    EXPECT_EQ(func.return_type, IrType::I32);
 
     ASSERT_EQ(func.parameters.size(), 2);
     EXPECT_EQ(interner.GetString(func.parameters[0].name_id), "a");
-    EXPECT_EQ(interner.GetString(func.parameters[0].type_id), "int32");
+    EXPECT_EQ(func.parameters[0].type, IrType::I32);
+    EXPECT_EQ(func.parameters[0].reg, 0U);
     EXPECT_EQ(interner.GetString(func.parameters[1].name_id), "b");
-    EXPECT_EQ(interner.GetString(func.parameters[1].type_id), "int32");
+    EXPECT_EQ(func.parameters[1].type, IrType::I32);
+    EXPECT_EQ(func.parameters[1].reg, 1U);
+
+    // レジスタテーブル (a=0, b=1, res=2, temp=3)
+    ASSERT_EQ(func.reg_types.size(), 4);
+    ASSERT_EQ(func.reg_names.size(), 4);
 
     // 命令列の検証:
-    // 1. Alloca : res
-    // 2. Add    : %0 = a + b
-    // 3. Assign : res = %0
-    // 4. Return : res
+    // 1. Alloca : res (reg 2)
+    // 2. Add    : %3 = a(reg 0) + b(reg 1)
+    // 3. Assign : res(reg 2) = %3
+    // 4. Return : res(reg 2)
     ASSERT_EQ(func.instructions.size(), 4);
 
     // 1. Alloca res
     EXPECT_EQ(func.instructions[0].op, IrOpcode::Alloca);
     EXPECT_EQ(func.instructions[0].dest.kind, IrOperandKind::Variable);
-    EXPECT_EQ(interner.GetString(func.instructions[0].dest.id), "res");
+    EXPECT_EQ(func.instructions[0].dest.reg, 2U);
+    EXPECT_EQ(interner.GetString(func.reg_names[func.instructions[0].dest.reg]), "res");
 
-    // 2. Add %0 = a + b
+    // 2. Add %3 = a + b
     EXPECT_EQ(func.instructions[1].op, IrOpcode::Add);
     EXPECT_EQ(func.instructions[1].dest.kind, IrOperandKind::Temporary);
-    EXPECT_EQ(interner.GetString(func.instructions[1].dest.id), "%0");
+    EXPECT_EQ(func.instructions[1].dest.reg, 3U);
     EXPECT_EQ(func.instructions[1].src1.kind, IrOperandKind::Variable);
-    EXPECT_EQ(interner.GetString(func.instructions[1].src1.id), "a");
+    EXPECT_EQ(func.instructions[1].src1.reg, 0U);
     EXPECT_EQ(func.instructions[1].src2.kind, IrOperandKind::Variable);
-    EXPECT_EQ(interner.GetString(func.instructions[1].src2.id), "b");
+    EXPECT_EQ(func.instructions[1].src2.reg, 1U);
 
-    // 3. Assign res = %0
+    // 3. Assign res = %3
     EXPECT_EQ(func.instructions[2].op, IrOpcode::Assign);
     EXPECT_EQ(func.instructions[2].dest.kind, IrOperandKind::Variable);
-    EXPECT_EQ(interner.GetString(func.instructions[2].dest.id), "res");
+    EXPECT_EQ(func.instructions[2].dest.reg, 2U);
     EXPECT_EQ(func.instructions[2].src1.kind, IrOperandKind::Temporary);
-    EXPECT_EQ(interner.GetString(func.instructions[2].src1.id), "%0");
+    EXPECT_EQ(func.instructions[2].src1.reg, 3U);
 
     // 4. Return res
     EXPECT_EQ(func.instructions[3].op, IrOpcode::Return);
     EXPECT_EQ(func.instructions[3].src1.kind, IrOperandKind::Variable);
-    EXPECT_EQ(interner.GetString(func.instructions[3].src1.id), "res");
+    EXPECT_EQ(func.instructions[3].src1.reg, 2U);
 }
 
 TEST(IrBuilderTest, CompoundArithmeticExpression) {
@@ -104,32 +111,34 @@ TEST(IrBuilderTest, CompoundArithmeticExpression) {
     ASSERT_EQ(module.functions.size(), 1);
     const IrFunction& func = module.functions[0];
 
+    // Registers: x = 0, temp1 = 1, temp2 = 2
     // Instructions:
-    // 1. Alloca x
-    // 2. Add    %0 = 10 + 20
-    // 3. Mul    %1 = %0 * 2
-    // 4. Assign x = %1
-    // 5. Return x
+    // 1. Alloca x (reg 0)
+    // 2. Add    reg 1 = 10 + 20
+    // 3. Mul    reg 2 = reg 1 * 2
+    // 4. Assign x (reg 0) = reg 2
+    // 5. Return x (reg 0)
     ASSERT_EQ(func.instructions.size(), 5);
 
     EXPECT_EQ(func.instructions[0].op, IrOpcode::Alloca);
+    EXPECT_EQ(func.instructions[0].dest.reg, 0U);
 
     EXPECT_EQ(func.instructions[1].op, IrOpcode::Add);
-    EXPECT_EQ(interner.GetString(func.instructions[1].dest.id), "%0");
+    EXPECT_EQ(func.instructions[1].dest.reg, 1U);
     EXPECT_EQ(func.instructions[1].src1.constant_int, 10);
     EXPECT_EQ(func.instructions[1].src2.constant_int, 20);
 
     EXPECT_EQ(func.instructions[2].op, IrOpcode::Mul);
-    EXPECT_EQ(interner.GetString(func.instructions[2].dest.id), "%1");
-    EXPECT_EQ(interner.GetString(func.instructions[2].src1.id), "%0");
+    EXPECT_EQ(func.instructions[2].dest.reg, 2U);
+    EXPECT_EQ(func.instructions[2].src1.reg, 1U);
     EXPECT_EQ(func.instructions[2].src2.constant_int, 2);
 
     EXPECT_EQ(func.instructions[3].op, IrOpcode::Assign);
-    EXPECT_EQ(interner.GetString(func.instructions[3].dest.id), "x");
-    EXPECT_EQ(interner.GetString(func.instructions[3].src1.id), "%1");
+    EXPECT_EQ(func.instructions[3].dest.reg, 0U);
+    EXPECT_EQ(func.instructions[3].src1.reg, 2U);
 
     EXPECT_EQ(func.instructions[4].op, IrOpcode::Return);
-    EXPECT_EQ(interner.GetString(func.instructions[4].src1.id), "x");
+    EXPECT_EQ(func.instructions[4].src1.reg, 0U);
 }
 
 TEST(IrBuilderTest, CompoundAssignment) {
@@ -147,31 +156,33 @@ TEST(IrBuilderTest, CompoundAssignment) {
     ASSERT_EQ(module.functions.size(), 1);
     const IrFunction& func = module.functions[0];
 
+    // Registers: hp = 0, temp = 1
     // Instructions:
-    // 1. Alloca hp
-    // 2. Assign hp = 100
-    // 3. Add    %0 = hp + 20
-    // 4. Assign hp = %0
-    // 5. Return hp
+    // 1. Alloca hp (reg 0)
+    // 2. Assign hp (reg 0) = 100
+    // 3. Add    reg 1 = hp (reg 0) + 20
+    // 4. Assign hp (reg 0) = reg 1
+    // 5. Return hp (reg 0)
     ASSERT_EQ(func.instructions.size(), 5);
 
     EXPECT_EQ(func.instructions[0].op, IrOpcode::Alloca);
-    EXPECT_EQ(interner.GetString(func.instructions[0].dest.id), "hp");
+    EXPECT_EQ(func.instructions[0].dest.reg, 0U);
+    EXPECT_EQ(interner.GetString(func.reg_names[0]), "hp");
 
     EXPECT_EQ(func.instructions[1].op, IrOpcode::Assign);
-    EXPECT_EQ(interner.GetString(func.instructions[1].dest.id), "hp");
+    EXPECT_EQ(func.instructions[1].dest.reg, 0U);
     EXPECT_EQ(func.instructions[1].src1.constant_int, 100);
 
     EXPECT_EQ(func.instructions[2].op, IrOpcode::Add);
-    EXPECT_EQ(interner.GetString(func.instructions[2].dest.id), "%0");
-    EXPECT_EQ(interner.GetString(func.instructions[2].src1.id), "hp");
+    EXPECT_EQ(func.instructions[2].dest.reg, 1U);
+    EXPECT_EQ(func.instructions[2].src1.reg, 0U);
     EXPECT_EQ(func.instructions[2].src2.constant_int, 20);
 
     EXPECT_EQ(func.instructions[3].op, IrOpcode::Assign);
-    EXPECT_EQ(interner.GetString(func.instructions[3].dest.id), "hp");
-    EXPECT_EQ(interner.GetString(func.instructions[3].src1.id), "%0");
+    EXPECT_EQ(func.instructions[3].dest.reg, 0U);
+    EXPECT_EQ(func.instructions[3].src1.reg, 1U);
 
     EXPECT_EQ(func.instructions[4].op, IrOpcode::Return);
-    EXPECT_EQ(interner.GetString(func.instructions[4].src1.id), "hp");
+    EXPECT_EQ(func.instructions[4].src1.reg, 0U);
 }
 

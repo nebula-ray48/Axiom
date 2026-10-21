@@ -32,6 +32,15 @@ StringID IrBuilder::field_id(TSNode node, std::string_view field_name, std::stri
     return interner_.Intern(get_node_text(child));
 }
 
+IrType IrBuilder::field_type(TSNode node, std::string_view field_name, IrType fallback) const {
+    TSNode child = child_by_field(node, field_name);
+    if (ts_node_is_null(child)) {
+        return fallback;
+    }
+    IrType parsed = parse_ir_type(get_node_text(child));
+    return (parsed != IrType::Unknown) ? parsed : fallback;
+}
+
 void IrBuilder::emit(IrFunction& func, IrOpcode op, IrOperand dest, IrOperand src1, IrOperand src2) {
     func.instructions.push_back(IrInstruction{
         .op = op,
@@ -49,11 +58,9 @@ IrOpcode IrBuilder::parse_arith_op(std::string_view op_text) {
     return IrOpcode::Add;
 }
 
-IrOperand IrBuilder::allocate_temp(StringID type_id) {
-    std::string name = "%" + std::to_string(temp_counter_++);
-    StringID temp_id = interner_.Intern(name);
-
-    return IrOperand::MakeTemp(temp_id, type_id);
+IrOperand IrBuilder::allocate_temp(IrFunction& func, IrType type) {
+    RegId temp_reg = func.allocate_reg(type);
+    return IrOperand::MakeTemp(temp_reg, type);
 }
 
 IrModule IrBuilder::build(TSNode root_node) {
@@ -71,12 +78,12 @@ IrModule IrBuilder::build(TSNode root_node) {
 }
 
 IrFunction IrBuilder::build_function(TSNode func_node) {
-    temp_counter_ = 0;
+    local_vars_.clear();
     IrFunction func;
 
     // 1. 関数名 & 戻り値型（ヘルパーで1行ずつ！）
     func.name_id = field_id(func_node, "name");
-    func.return_type_id = field_id(func_node, "return_type", "void");
+    func.return_type = field_type(func_node, "return_type", IrType::Void);
 
     // 2. 引数リスト
     uint32_t count = ts_node_named_child_count(func_node);
@@ -88,8 +95,10 @@ IrFunction IrBuilder::build_function(TSNode func_node) {
                 TSNode param_node = ts_node_named_child(child, j);
                 if (std::string_view(ts_node_type(param_node)) == "parameter") {
                     StringID name_id = field_id(param_node, "name");
-                    StringID type_id = field_id(param_node, "type");
-                    func.parameters.push_back({ name_id, type_id });
+                    IrType type = field_type(param_node, "type");
+                    RegId reg = func.allocate_reg(type, name_id);
+                    local_vars_[name_id] = reg;
+                    func.parameters.push_back({ name_id, type, reg });
                 }
             }
         }
@@ -116,8 +125,10 @@ void IrBuilder::build_statement(TSNode stmt_node, IrFunction& current_func) {
 
     if (type == "variable_declaration") {
         StringID name_id = field_id(stmt_node, "name");
-        StringID type_id = field_id(stmt_node, "type", "int32");
-        IrOperand var_op = IrOperand::MakeVar(name_id, type_id);
+        IrType var_type = field_type(stmt_node, "type", IrType::I32);
+        RegId reg = current_func.allocate_reg(var_type, name_id);
+        local_vars_[name_id] = reg;
+        IrOperand var_op = IrOperand::MakeVar(reg, var_type);
 
         emit(current_func, IrOpcode::Alloca, var_op);
 
@@ -146,13 +157,18 @@ IrOperand IrBuilder::build_expression(TSNode expr_node, IrFunction& current_func
         std::string_view text = get_node_text(expr_node);
         int64_t val = 0;
         std::from_chars(text.data(), text.data() + text.size(), val);
-        return IrOperand::MakeConst(val, interner_.Intern("int32"));
+        return IrOperand::MakeConst(val, IrType::I32);
     }
 
     // 2. 変数参照（識別子）
     if (type == "identifier") {
-        StringID id = interner_.Intern(get_node_text(expr_node));
-        return IrOperand::MakeVar(id, interner_.Intern("int32"));
+        StringID name_id = interner_.Intern(get_node_text(expr_node));
+        auto it = local_vars_.find(name_id);
+        if (it == local_vars_.end()) {
+            return IrOperand::MakeNone();
+        }
+        RegId reg = it->second;
+        return IrOperand::MakeVar(reg, current_func.reg_types[reg]);
     }
 
     // 3. 括弧式 (a + b)
@@ -168,14 +184,19 @@ IrOperand IrBuilder::build_expression(TSNode expr_node, IrFunction& current_func
 
         IrOperand rhs = build_expression(right_node, current_func);
         StringID var_id = interner_.Intern(get_node_text(left_node));
-        IrOperand dest = IrOperand::MakeVar(var_id, rhs.type_id);
+        auto it = local_vars_.find(var_id);
+        if (it == local_vars_.end()) {
+            return IrOperand::MakeNone();
+        }
+        RegId reg = it->second;
+        IrOperand dest = IrOperand::MakeVar(reg, current_func.reg_types[reg]);
 
         std::string_view op_text = get_node_text(op_node);
         if (op_text == "=") {
             emit(current_func, IrOpcode::Assign, dest, rhs);
         } else {
             IrOpcode bin_op = parse_arith_op(op_text);
-            IrOperand temp = allocate_temp(rhs.type_id);
+            IrOperand temp = allocate_temp(current_func, dest.type);
             emit(current_func, bin_op, temp, dest, rhs);
             emit(current_func, IrOpcode::Assign, dest, temp);
         }
@@ -188,8 +209,8 @@ IrOperand IrBuilder::build_expression(TSNode expr_node, IrFunction& current_func
         IrOperand rhs = build_expression(ts_node_child(expr_node, 2), current_func);
 
         IrOpcode op = parse_arith_op(get_node_text(ts_node_child(expr_node, 1)));
-        StringID res_type = (lhs.type_id != kInvalidStringID) ? lhs.type_id : interner_.Intern("int32");
-        IrOperand temp = allocate_temp(res_type);
+        IrType res_type = (lhs.type != IrType::Unknown) ? lhs.type : IrType::I32;
+        IrOperand temp = allocate_temp(current_func, res_type);
 
         emit(current_func, op, temp, lhs, rhs);
         return temp;

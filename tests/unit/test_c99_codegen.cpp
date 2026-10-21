@@ -50,8 +50,8 @@ TEST(C99CodeGenTest, SimpleAdditionFunction) {
         "#include <stdbool.h>\n\n"
         "int32_t add(int32_t a, int32_t b) {\n"
         "    int32_t res;\n"
-        "    int32_t _t0 = a + b;\n"
-        "    res = _t0;\n"
+        "    int32_t _t3 = a + b;\n"
+        "    res = _t3;\n"
         "    return res;\n"
         "}\n\n";
 
@@ -96,8 +96,8 @@ TEST(C99CodeGenTest, CompoundAssignmentAndArithmetic) {
         "int32_t calc(int32_t x) {\n"
         "    int32_t total;\n"
         "    total = x;\n"
-        "    int32_t _t0 = total + 10;\n"
-        "    total = _t0;\n"
+        "    int32_t _t2 = total + 10;\n"
+        "    total = _t2;\n"
         "    return total;\n"
         "}\n\n";
 
