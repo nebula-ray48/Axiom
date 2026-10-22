@@ -46,12 +46,21 @@ void C99CodeGen::generate_instruction(const ir::IrFunction& func, const ir::IrIn
     } else if (inst.op == ir::IrOpcode::Assign) {
         out += "    " + format_operand(func, inst.dest) + " = " + format_operand(func, inst.src1) + ";\n";
     } else if (inst.op == ir::IrOpcode::Add || inst.op == ir::IrOpcode::Sub ||
-               inst.op == ir::IrOpcode::Mul || inst.op == ir::IrOpcode::Div) {
+               inst.op == ir::IrOpcode::Mul || inst.op == ir::IrOpcode::Div ||
+               inst.op == ir::IrOpcode::CmpEq || inst.op == ir::IrOpcode::CmpNe ||
+               inst.op == ir::IrOpcode::CmpLt || inst.op == ir::IrOpcode::CmpLe ||
+               inst.op == ir::IrOpcode::CmpGt || inst.op == ir::IrOpcode::CmpGe) {
         std::string_view op_sym = "+";
-        if (inst.op == ir::IrOpcode::Add) op_sym = "+";
-        else if (inst.op == ir::IrOpcode::Sub) op_sym = "-";
-        else if (inst.op == ir::IrOpcode::Mul) op_sym = "*";
-        else if (inst.op == ir::IrOpcode::Div) op_sym = "/";
+        if (inst.op == ir::IrOpcode::Add)        op_sym = "+";
+        else if (inst.op == ir::IrOpcode::Sub)   op_sym = "-";
+        else if (inst.op == ir::IrOpcode::Mul)   op_sym = "*";
+        else if (inst.op == ir::IrOpcode::Div)   op_sym = "/";
+        else if (inst.op == ir::IrOpcode::CmpEq) op_sym = "==";
+        else if (inst.op == ir::IrOpcode::CmpNe) op_sym = "!=";
+        else if (inst.op == ir::IrOpcode::CmpLt) op_sym = "<";
+        else if (inst.op == ir::IrOpcode::CmpLe) op_sym = "<=";
+        else if (inst.op == ir::IrOpcode::CmpGt) op_sym = ">";
+        else if (inst.op == ir::IrOpcode::CmpGe) op_sym = ">=";
 
         out += "    " + map_type(inst.dest.type) + " " + format_operand(func, inst.dest) + " = "
             + format_operand(func, inst.src1) + " " + std::string(op_sym) + " " + format_operand(func, inst.src2) + ";\n";

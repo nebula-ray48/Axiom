@@ -24,6 +24,10 @@ enum class IrOpcode : uint8_t {
     Mul,    // 乗算: dest = src1 * src2
     Div,    // 除算: dest = src1 / src2
     Return, // 戻り値返却: return src1
+    CmpEq, CmpNe, CmpLt, CmpLe, CmpGt, CmpGe, // 比較演算 { ==, !=, <, <=, >, >= }
+    Label,  // ジャンプ先の目印（ターゲット）
+    Jump,   // 無条件ジャンプ
+    BranchIfFalse, // 条件が false (0) のときジャンプ
 };
 
 /// 値の種類
@@ -63,19 +67,19 @@ enum class IrType : uint8_t {
 /// 命令が読み書きする値（オペランド）
 struct IrOperand {
     IrOperandKind kind { IrOperandKind::None };
+    IrType        type { IrType::Unknown }; // 型 (int32 など)
     RegId reg { kInvalidRegId }; // Variable または Temporary の StringID
     int64_t       constant_int { 0 };      // Constant の場合の整数値
-    IrType        type { IrType::Unknown }; // 型 (int32 など)
 
     // 便利な静的ヘルパー（ファクトリ関数）
     static IrOperand MakeVar(RegId var_id, IrType type) noexcept {
-        return { IrOperandKind::Variable, var_id, 0, type };
+        return { IrOperandKind::Variable, type, var_id, 0 };
     }
     static IrOperand MakeTemp(RegId temp_id, IrType type) noexcept {
-        return { IrOperandKind::Temporary, temp_id, 0, type };
+        return { IrOperandKind::Temporary, type, temp_id, 0 };
     }
     static IrOperand MakeConst(int64_t val, IrType type) noexcept {
-        return { IrOperandKind::Constant, kInvalidRegId, val, type };
+        return { IrOperandKind::Constant, type, kInvalidRegId, val };
     }
     static IrOperand MakeNone() noexcept {
         return {};
@@ -85,6 +89,7 @@ struct IrOperand {
 /// 3番地コード形式の命令（dest = src1 op src2）
 struct IrInstruction {
     IrOpcode  op { IrOpcode::Alloca };
+    LabelId   label { kInvalidLabelId };
     IrOperand dest {}; // 格納先
     IrOperand src1 {}; // 入力1
     IrOperand src2 {}; // 入力2（単項やReturnならNone）
@@ -106,6 +111,7 @@ struct IrFunction {
     std::vector<IrInstruction> instructions;
     std::vector<IrType>        reg_types;
     std::vector<StringID>      reg_names;
+    std::vector<StringID>      label_names;
 
     RegId allocate_reg(IrType type, StringID reg_name_id = kInvalidStringID) {
         RegId new_reg = static_cast<RegId>(reg_types.size());
@@ -113,6 +119,13 @@ struct IrFunction {
         reg_names.push_back(reg_name_id);
 
         return new_reg;
+    }
+
+    LabelId allocate_label(StringID label_name_id = kInvalidStringID) {
+        LabelId new_label = static_cast<LabelId>(label_names.size());
+        label_names.push_back(label_name_id);
+
+        return new_label;
     }
 };
 

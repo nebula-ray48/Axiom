@@ -103,3 +103,27 @@ TEST(C99CodeGenTest, CompoundAssignmentAndArithmetic) {
 
     EXPECT_EQ(c_code, expected);
 }
+
+TEST(C99CodeGenTest, ComparisonOperators) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun is_alive(hp: int32) -> bool {
+            val alive: bool = hp > 0;
+            return alive;
+        }
+    )";
+
+    std::string c_code = CompileToC99(code, interner);
+
+    const std::string expected =
+        "#include <stdint.h>\n"
+        "#include <stdbool.h>\n\n"
+        "bool is_alive(int32_t hp) {\n"
+        "    bool alive;\n"
+        "    bool _t2 = hp > 0;\n"
+        "    alive = _t2;\n"
+        "    return alive;\n"
+        "}\n\n";
+
+    EXPECT_EQ(c_code, expected);
+}

@@ -132,6 +132,34 @@ std::vector<Diagnostic> verify_function(const IrFunction& func, const StringInte
                     );
                 }
             }
+        } else if (inst.op == IrOpcode::CmpEq || inst.op == IrOpcode::CmpNe ||
+                   inst.op == IrOpcode::CmpLt || inst.op == IrOpcode::CmpLe ||
+                   inst.op == IrOpcode::CmpGt || inst.op == IrOpcode::CmpGe) {
+            if (inst.dest.kind != IrOperandKind::Variable && inst.dest.kind != IrOperandKind::Temporary) {
+                report_error(
+                    errors, func.name_id,
+                    "Comparison instruction requires a register operand as destination",
+                    interner
+                );
+            } else {
+                bool dest_ok = verify_operand(func, inst.dest, "Destination", errors, interner);
+                bool src1_ok = verify_operand(func, inst.src1, "LHS", errors, interner);
+                bool src2_ok = verify_operand(func, inst.src2, "RHS", errors, interner);
+                if (dest_ok && inst.dest.type != IrType::Bool) {
+                    report_error(
+                        errors, func.name_id,
+                        "Comparison instruction destination must have bool type",
+                        interner
+                    );
+                }
+                if (src1_ok && src2_ok && inst.src1.type != inst.src2.type) {
+                    report_error(
+                        errors, func.name_id,
+                        "Comparison instruction LHS and RHS types must match",
+                        interner
+                    );
+                }
+            }
         } else if (inst.op == IrOpcode::Return) {
             if (func.return_type == IrType::Void) {
                 if (inst.src1.kind != IrOperandKind::None) {

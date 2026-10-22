@@ -207,11 +207,34 @@ IrOperand IrBuilder::build_expression(TSNode expr_node, IrFunction& current_func
     if (type == "binary_expression") {
         IrOperand lhs = build_expression(ts_node_child(expr_node, 0), current_func);
         IrOperand rhs = build_expression(ts_node_child(expr_node, 2), current_func);
+        std::string_view op_text = get_node_text(ts_node_child(expr_node, 1));
 
-        IrOpcode op = parse_arith_op(get_node_text(ts_node_child(expr_node, 1)));
-        IrType res_type = (lhs.type != IrType::Unknown) ? lhs.type : IrType::I32;
+        IrOpcode op;
+        IrType   res_type;
+
+        if (op_text == "==") {
+            op = IrOpcode::CmpEq;
+            res_type = IrType::Bool;
+        } else if (op_text == "!=") {
+            op = IrOpcode::CmpNe;
+            res_type = IrType::Bool;
+        } else if (op_text == "<") {
+            op = IrOpcode::CmpLt;
+            res_type = IrType::Bool;
+        } else if (op_text == "<=") {
+            op = IrOpcode::CmpLe;
+            res_type = IrType::Bool;
+        } else if (op_text == ">") {
+            op = IrOpcode::CmpGt;
+            res_type = IrType::Bool;
+        } else if (op_text == ">=") {
+            op = IrOpcode::CmpGe;
+            res_type = IrType::Bool;
+        } else {
+            op = parse_arith_op(op_text);
+            res_type = (lhs.type != IrType::Unknown) ? lhs.type : IrType::I32;
+        }
         IrOperand temp = allocate_temp(current_func, res_type);
-
         emit(current_func, op, temp, lhs, rhs);
         return temp;
     }

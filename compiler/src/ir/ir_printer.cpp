@@ -24,6 +24,23 @@ std::string format_reg_identifier(
     return "%" + std::to_string(reg);
 }
 
+std::string format_label(
+    const IrFunction& func,
+    LabelId label,
+    const StringInterner* interner
+) {
+    if (label == kInvalidLabelId) {
+        return "$invalid";
+    }
+    if (interner != nullptr && label < func.label_names.size()) {
+        StringID name_id = func.label_names[label];
+        if (name_id != kInvalidStringID) {
+            return "$" + std::string(interner->GetString(name_id));
+        }
+    }
+    return "$L" + std::to_string(label);
+}
+
 std::string format_operand(
     const IrFunction& func,
     const IrOperand& op,
@@ -75,10 +92,26 @@ std::string dump_ir(const IrFunction& func, const StringInterner* interner, bool
             case IrOpcode::Sub:
             case IrOpcode::Mul:
             case IrOpcode::Div:
+            case IrOpcode::CmpEq:
+            case IrOpcode::CmpNe:
+            case IrOpcode::CmpLt:
+            case IrOpcode::CmpLe:
+            case IrOpcode::CmpGt:
+            case IrOpcode::CmpGe:
                 out += format_operand(func, inst.dest, interner, use_reg_names)
                     + " = " + std::string(format_ir_opcode(inst.op)) + " "
                     + format_operand(func, inst.src1, interner, use_reg_names) + ", "
                     + format_operand(func, inst.src2, interner, use_reg_names);
+                break;
+            case IrOpcode::Label:
+                out += "label " + format_label(func, inst.label, interner);
+                break;
+            case IrOpcode::Jump:
+                out += "jmp " + format_label(func, inst.label, interner);
+                break;
+            case IrOpcode::BranchIfFalse:
+                out += "br_false " + format_operand(func, inst.src1, interner, use_reg_names)
+                    + ", " + format_label(func, inst.label, interner);
                 break;
             case IrOpcode::Return:
                 out += "ret";

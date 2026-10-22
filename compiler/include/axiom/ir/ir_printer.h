@@ -38,6 +38,15 @@ namespace axiom::ir {
         case IrOpcode::Mul:    return "mul";
         case IrOpcode::Div:    return "div";
         case IrOpcode::Return: return "ret";
+        case IrOpcode::CmpEq:  return "cmp_eq";
+        case IrOpcode::CmpNe:  return "cmp_ne";
+        case IrOpcode::CmpLt:  return "cmp_lt";
+        case IrOpcode::CmpLe:  return "cmp_le";
+        case IrOpcode::CmpGt:  return "cmp_gt";
+        case IrOpcode::CmpGe:  return "cmp_ge";
+        case IrOpcode::Label:  return "label";
+        case IrOpcode::Jump:   return "jmp";
+        case IrOpcode::BranchIfFalse: return "br_false";
         default:               return "unknown";
     }
 }

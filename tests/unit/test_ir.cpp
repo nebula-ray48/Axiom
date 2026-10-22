@@ -259,3 +259,45 @@ TEST(IrBuilderTest, VerifierPassesValidIrAndDetectsCorruptedIr) {
     EXPECT_NE(ret_errors[0].message.find("must return a value"), std::string::npos);
 }
 
+TEST(IrBuilderTest, ComparisonOperatorsEmitBoolAndPassVerifier) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun check_all_cmp(a: int32, b: int32) -> bool {
+            val eq: bool = a == b;
+            val ne: bool = a != b;
+            val lt: bool = a < b;
+            val le: bool = a <= b;
+            val gt: bool = a > b;
+            val ge: bool = a >= b;
+            return ge;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+    EXPECT_TRUE(verify_module(module, &interner).empty());
+
+    const std::string expected_named =
+        "fun check_all_cmp(%a: i32, %b: i32) -> bool {\n"
+        "  alloca %eq: bool\n"
+        "  %3: bool = cmp_eq %a: i32, %b: i32\n"
+        "  %eq: bool = assign %3: bool\n"
+        "  alloca %ne: bool\n"
+        "  %5: bool = cmp_ne %a: i32, %b: i32\n"
+        "  %ne: bool = assign %5: bool\n"
+        "  alloca %lt: bool\n"
+        "  %7: bool = cmp_lt %a: i32, %b: i32\n"
+        "  %lt: bool = assign %7: bool\n"
+        "  alloca %le: bool\n"
+        "  %9: bool = cmp_le %a: i32, %b: i32\n"
+        "  %le: bool = assign %9: bool\n"
+        "  alloca %gt: bool\n"
+        "  %11: bool = cmp_gt %a: i32, %b: i32\n"
+        "  %gt: bool = assign %11: bool\n"
+        "  alloca %ge: bool\n"
+        "  %13: bool = cmp_ge %a: i32, %b: i32\n"
+        "  %ge: bool = assign %13: bool\n"
+        "  ret %ge: bool\n"
+        "}\n";
+    EXPECT_EQ(dump_ir(module, &interner, true), expected_named);
+}
+
