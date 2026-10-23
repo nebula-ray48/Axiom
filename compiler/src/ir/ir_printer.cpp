@@ -6,12 +6,10 @@ namespace axiom::ir {
 
 namespace {
 
-std::string format_reg_identifier(
-    const IrFunction& func,
-    RegId reg,
-    const StringInterner* interner,
-    bool use_reg_names
-) {
+std::string format_reg_identifier(const IrFunction&     func,
+                                  RegId                 reg,
+                                  const StringInterner* interner,
+                                  bool                  use_reg_names) {
     if (reg == kInvalidRegId) {
         return "%invalid";
     }
@@ -24,11 +22,7 @@ std::string format_reg_identifier(
     return "%" + std::to_string(reg);
 }
 
-std::string format_label(
-    const IrFunction& func,
-    LabelId label,
-    const StringInterner* interner
-) {
+std::string format_label(const IrFunction& func, LabelId label, const StringInterner* interner) {
     if (label == kInvalidLabelId) {
         return "$invalid";
     }
@@ -41,23 +35,20 @@ std::string format_label(
     return "$L" + std::to_string(label);
 }
 
-std::string format_operand(
-    const IrFunction& func,
-    const IrOperand& op,
-    const StringInterner* interner,
-    bool use_reg_names
-) {
+std::string format_operand(const IrFunction&     func,
+                           const IrOperand&      op,
+                           const StringInterner* interner,
+                           bool                  use_reg_names) {
     if (op.kind == IrOperandKind::None) {
         return "";
     }
     if (op.kind == IrOperandKind::Constant) {
         return std::to_string(op.constant_int) + ": " + std::string(format_ir_type(op.type));
     }
-    return format_reg_identifier(func, op.reg, interner, use_reg_names)
-        + ": " + std::string(format_ir_type(op.type));
+    return format_reg_identifier(func, op.reg, interner, use_reg_names) + ": " + std::string(format_ir_type(op.type));
 }
 
-} // namespace
+}  // namespace
 
 std::string dump_ir(const IrFunction& func, const StringInterner* interner, bool use_reg_names) {
     std::string out = "fun ";
@@ -73,20 +64,18 @@ std::string dump_ir(const IrFunction& func, const StringInterner* interner, bool
             out += ", ";
         }
         const auto& param = func.parameters[i];
-        out += format_reg_identifier(func, param.reg, interner, use_reg_names)
-            + ": " + std::string(format_ir_type(param.type));
+        out += format_reg_identifier(func, param.reg, interner, use_reg_names) + ": " +
+               std::string(format_ir_type(param.type));
     }
     out += ") -> " + std::string(format_ir_type(func.return_type)) + " {\n";
 
     for (const auto& inst : func.instructions) {
         out += "  ";
         switch (inst.op) {
-            case IrOpcode::Alloca:
-                out += "alloca " + format_operand(func, inst.dest, interner, use_reg_names);
-                break;
+            case IrOpcode::Alloca: out += "alloca " + format_operand(func, inst.dest, interner, use_reg_names); break;
             case IrOpcode::Assign:
-                out += format_operand(func, inst.dest, interner, use_reg_names)
-                    + " = assign " + format_operand(func, inst.src1, interner, use_reg_names);
+                out += format_operand(func, inst.dest, interner, use_reg_names) + " = assign " +
+                       format_operand(func, inst.src1, interner, use_reg_names);
                 break;
             case IrOpcode::Add:
             case IrOpcode::Sub:
@@ -98,20 +87,16 @@ std::string dump_ir(const IrFunction& func, const StringInterner* interner, bool
             case IrOpcode::CmpLe:
             case IrOpcode::CmpGt:
             case IrOpcode::CmpGe:
-                out += format_operand(func, inst.dest, interner, use_reg_names)
-                    + " = " + std::string(format_ir_opcode(inst.op)) + " "
-                    + format_operand(func, inst.src1, interner, use_reg_names) + ", "
-                    + format_operand(func, inst.src2, interner, use_reg_names);
+                out += format_operand(func, inst.dest, interner, use_reg_names) + " = " +
+                       std::string(format_ir_opcode(inst.op)) + " " +
+                       format_operand(func, inst.src1, interner, use_reg_names) + ", " +
+                       format_operand(func, inst.src2, interner, use_reg_names);
                 break;
-            case IrOpcode::Label:
-                out += "label " + format_label(func, inst.label, interner);
-                break;
-            case IrOpcode::Jump:
-                out += "jmp " + format_label(func, inst.label, interner);
-                break;
+            case IrOpcode::Label: out += "label " + format_label(func, inst.label, interner); break;
+            case IrOpcode::Jump: out += "jmp " + format_label(func, inst.label, interner); break;
             case IrOpcode::BranchIfFalse:
-                out += "br_false " + format_operand(func, inst.src1, interner, use_reg_names)
-                    + ", " + format_label(func, inst.label, interner);
+                out += "br_false " + format_operand(func, inst.src1, interner, use_reg_names) + ", " +
+                       format_label(func, inst.label, interner);
                 break;
             case IrOpcode::Return:
                 out += "ret";
@@ -138,5 +123,4 @@ std::string dump_ir(const IrModule& module, const StringInterner* interner, bool
     return out;
 }
 
-} // namespace axiom::ir
-
+}  // namespace axiom::ir

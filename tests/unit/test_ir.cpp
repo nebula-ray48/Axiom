@@ -301,3 +301,194 @@ TEST(IrBuilderTest, ComparisonOperatorsEmitBoolAndPassVerifier) {
     EXPECT_EQ(dump_ir(module, &interner, true), expected_named);
 }
 
+TEST(IrBuilderTest, IfStatementWithoutElse) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun clamp_positive(x: int32) -> int32 {
+            var res: int32 = x;
+            if res < 0 {
+                res = 0;
+            }
+            return res;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+    EXPECT_TRUE(verify_module(module, &interner).empty());
+
+    const std::string expected_named =
+        "fun clamp_positive(%x: i32) -> i32 {\n"
+        "  alloca %res: i32\n"
+        "  %res: i32 = assign %x: i32\n"
+        "  %2: bool = cmp_lt %res: i32, 0: i32\n"
+        "  br_false %2: bool, $L0\n"
+        "  %res: i32 = assign 0: i32\n"
+        "  label $L0\n"
+        "  ret %res: i32\n"
+        "}\n";
+    EXPECT_EQ(dump_ir(module, &interner, true), expected_named);
+}
+
+TEST(IrBuilderTest, IfElseAndElseIfChain) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun classify(x: int32) -> int32 {
+            var sign: int32 = 0;
+            if x > 0 {
+                sign = 1;
+            } else if x < 0 {
+                sign = 2;
+            } else {
+                sign = 0;
+            }
+            return sign;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+    EXPECT_TRUE(verify_module(module, &interner).empty());
+
+    const std::string expected_named =
+        "fun classify(%x: i32) -> i32 {\n"
+        "  alloca %sign: i32\n"
+        "  %sign: i32 = assign 0: i32\n"
+        "  %2: bool = cmp_gt %x: i32, 0: i32\n"
+        "  br_false %2: bool, $L0\n"
+        "  %sign: i32 = assign 1: i32\n"
+        "  jmp $L1\n"
+        "  label $L0\n"
+        "  %3: bool = cmp_lt %x: i32, 0: i32\n"
+        "  br_false %3: bool, $L2\n"
+        "  %sign: i32 = assign 2: i32\n"
+        "  jmp $L3\n"
+        "  label $L2\n"
+        "  %sign: i32 = assign 0: i32\n"
+        "  label $L3\n"
+        "  label $L1\n"
+        "  ret %sign: i32\n"
+        "}\n";
+    EXPECT_EQ(dump_ir(module, &interner, true), expected_named);
+}
+
+TEST(IrBuilderTest, VerifierDetectsInvalidBranchAndLabels) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun check_if(x: int32) -> int32 {
+            if x > 0 {
+                return 1;
+            }
+            return 0;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+    ASSERT_EQ(module.functions.size(), 1U);
+    EXPECT_TRUE(verify_module(module, &interner).empty());
+
+    // 1. 非 bool 型を BranchIfFalse の条件に渡した場合
+    IrFunction bad_cond_func = module.functions[0];
+    bad_cond_func.instructions[1].src1 = IrOperand::MakeVar(0, IrType::I32);
+    auto cond_errors = verify_function(bad_cond_func, &interner);
+    ASSERT_EQ(cond_errors.size(), 1U);
+    EXPECT_NE(cond_errors[0].message.find("must have bool type"), std::string::npos);
+
+    // 2. 範囲外のラベル ID にジャンプした場合
+    IrFunction bad_label_func = module.functions[0];
+    bad_label_func.instructions[1].label = 99;
+    auto label_errors = verify_function(bad_label_func, &interner);
+    ASSERT_EQ(label_errors.size(), 1U);
+    EXPECT_NE(label_errors[0].message.find("out of bounds"), std::string::npos);
+
+    // 3. 確保されたが未配置（Label 命令がない）ラベルへジャンプした場合
+    IrFunction undef_label_func = module.functions[0];
+    LabelId ghost_label = undef_label_func.allocate_label();
+    undef_label_func.instructions[1].label = ghost_label;
+    auto undef_errors = verify_function(undef_label_func, &interner);
+    ASSERT_EQ(undef_errors.size(), 1U);
+    EXPECT_NE(undef_errors[0].message.find("never defined"), std::string::npos);
+}
+
+TEST(IrBuilderTest, WhileLoopBasic) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun sum_to(n: int32) -> int32 {
+            var i: int32 = 0;
+            var total: int32 = 0;
+            while i < n {
+                i = i + 1;
+                total = total + i;
+            }
+            return total;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+    EXPECT_TRUE(verify_module(module, &interner).empty());
+
+    const std::string expected_named =
+        "fun sum_to(%n: i32) -> i32 {\n"
+        "  alloca %i: i32\n"
+        "  %i: i32 = assign 0: i32\n"
+        "  alloca %total: i32\n"
+        "  %total: i32 = assign 0: i32\n"
+        "  label $L0\n"
+        "  %3: bool = cmp_lt %i: i32, %n: i32\n"
+        "  br_false %3: bool, $L1\n"
+        "  %4: i32 = add %i: i32, 1: i32\n"
+        "  %i: i32 = assign %4: i32\n"
+        "  %5: i32 = add %total: i32, %i: i32\n"
+        "  %total: i32 = assign %5: i32\n"
+        "  jmp $L0\n"
+        "  label $L1\n"
+        "  ret %total: i32\n"
+        "}\n";
+    EXPECT_EQ(dump_ir(module, &interner, true), expected_named);
+}
+
+TEST(IrBuilderTest, WhileLoopWithBreakAndContinue) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun search_loop(target: int32) -> int32 {
+            var x: int32 = 0;
+            while x < 100 {
+                x = x + 1;
+                if x == target {
+                    break;
+                }
+                if x == 50 {
+                    continue;
+                }
+            }
+            return x;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+    EXPECT_TRUE(verify_module(module, &interner).empty());
+
+    const std::string expected_named =
+        "fun search_loop(%target: i32) -> i32 {\n"
+        "  alloca %x: i32\n"
+        "  %x: i32 = assign 0: i32\n"
+        "  label $L0\n"
+        "  %2: bool = cmp_lt %x: i32, 100: i32\n"
+        "  br_false %2: bool, $L1\n"
+        "  %3: i32 = add %x: i32, 1: i32\n"
+        "  %x: i32 = assign %3: i32\n"
+        "  %4: bool = cmp_eq %x: i32, %target: i32\n"
+        "  br_false %4: bool, $L2\n"
+        "  jmp $L1\n"
+        "  label $L2\n"
+        "  %5: bool = cmp_eq %x: i32, 50: i32\n"
+        "  br_false %5: bool, $L3\n"
+        "  jmp $L0\n"
+        "  label $L3\n"
+        "  jmp $L0\n"
+        "  label $L1\n"
+        "  ret %x: i32\n"
+        "}\n";
+    EXPECT_EQ(dump_ir(module, &interner, true), expected_named);
+}
+
+
+

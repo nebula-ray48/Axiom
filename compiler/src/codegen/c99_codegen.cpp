@@ -64,6 +64,12 @@ void C99CodeGen::generate_instruction(const ir::IrFunction& func, const ir::IrIn
 
         out += "    " + map_type(inst.dest.type) + " " + format_operand(func, inst.dest) + " = "
             + format_operand(func, inst.src1) + " " + std::string(op_sym) + " " + format_operand(func, inst.src2) + ";\n";
+    } else if (inst.op == ir::IrOpcode::Label) {
+        out += "L" + std::to_string(inst.label) + ":;\n";
+    } else if (inst.op == ir::IrOpcode::Jump) {
+        out += "    goto L" + std::to_string(inst.label) + ";\n";
+    } else if (inst.op == ir::IrOpcode::BranchIfFalse) {
+        out += "    if (!" + format_operand(func, inst.src1) + ") goto L" + std::to_string(inst.label) + ";\n";
     } else if (inst.op == ir::IrOpcode::Return) {
         if (inst.src1.kind != ir::IrOperandKind::None) {
             out += "    return " + format_operand(func, inst.src1) + ";\n";

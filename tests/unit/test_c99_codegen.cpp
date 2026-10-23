@@ -1,45 +1,44 @@
+#include <string>
+#include <string_view>
+
 #include <gtest/gtest.h>
 #include <tree_sitter/api.h>
 
 #include "axiom/base/compiler.h"
 #include "axiom/codegen/c99_codegen.h"
+#include "axiom/ir/ir.h"
 #include "axiom/ir/ir_builder.h"
 
-using namespace axiom;
-using namespace axiom::ir;
+extern "C" const TSLanguage* tree_sitter_axiom();
 
 namespace {
 
-std::string CompileToC99(std::string_view code, StringInterner& interner) {
+using namespace axiom;
+
+std::string CompileToC99(std::string_view source, StringInterner& interner) {
     TSParser* parser = ts_parser_new();
     ts_parser_set_language(parser, tree_sitter_axiom());
 
-    TSTree* tree = ts_parser_parse_string(
-        parser,
-        nullptr,
-        code.data(),
-        static_cast<uint32_t>(code.length())
-    );
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source.data(), static_cast<uint32_t>(source.size()));
+    TSNode  root = ts_tree_root_node(tree);
 
-    TSNode root_node = ts_tree_root_node(tree);
-    IrBuilder builder(code, interner);
-    IrModule module = builder.build(root_node);
+    ir::IrBuilder builder(source, interner);
+    ir::IrModule  module = builder.build(root);
+
+    C99CodeGen  codegen(interner);
+    std::string c_code = codegen.generate(module);
 
     ts_tree_delete(tree);
     ts_parser_delete(parser);
 
-    C99CodeGen codegen(interner);
-    return codegen.generate(module);
+    return c_code;
 }
 
-} // namespace
-
 TEST(C99CodeGenTest, SimpleAdditionFunction) {
-    StringInterner interner;
+    StringInterner             interner;
     constexpr std::string_view code = R"(
         fun add(a: int32, b: int32) -> int32 {
-            val res: int32 = a + b;
-            return res;
+            return a + b;
         }
     )";
 
@@ -49,17 +48,15 @@ TEST(C99CodeGenTest, SimpleAdditionFunction) {
         "#include <stdint.h>\n"
         "#include <stdbool.h>\n\n"
         "int32_t add(int32_t a, int32_t b) {\n"
-        "    int32_t res;\n"
-        "    int32_t _t3 = a + b;\n"
-        "    res = _t3;\n"
-        "    return res;\n"
+        "    int32_t _t2 = a + b;\n"
+        "    return _t2;\n"
         "}\n\n";
 
     EXPECT_EQ(c_code, expected);
 }
 
 TEST(C99CodeGenTest, VoidFunctionNoParams) {
-    StringInterner interner;
+    StringInterner             interner;
     constexpr std::string_view code = R"(
         fun do_nothing() -> void {
             return;
@@ -79,7 +76,7 @@ TEST(C99CodeGenTest, VoidFunctionNoParams) {
 }
 
 TEST(C99CodeGenTest, CompoundAssignmentAndArithmetic) {
-    StringInterner interner;
+    StringInterner             interner;
     constexpr std::string_view code = R"(
         fun calc(x: int32) -> int32 {
             var total: int32 = x;
@@ -105,7 +102,7 @@ TEST(C99CodeGenTest, CompoundAssignmentAndArithmetic) {
 }
 
 TEST(C99CodeGenTest, ComparisonOperators) {
-    StringInterner interner;
+    StringInterner             interner;
     constexpr std::string_view code = R"(
         fun is_alive(hp: int32) -> bool {
             val alive: bool = hp > 0;
@@ -127,3 +124,80 @@ TEST(C99CodeGenTest, ComparisonOperators) {
 
     EXPECT_EQ(c_code, expected);
 }
+
+TEST(C99CodeGenTest, IfElseStatement) {
+    StringInterner             interner;
+    constexpr std::string_view code = R"(
+        fun max_val(a: int32, b: int32) -> int32 {
+            var res: int32 = a;
+            if b > a {
+                res = b;
+            } else {
+                res = a;
+            }
+            return res;
+        }
+    )";
+
+    std::string c_code = CompileToC99(code, interner);
+
+    const std::string expected =
+        "#include <stdint.h>\n"
+        "#include <stdbool.h>\n\n"
+        "int32_t max_val(int32_t a, int32_t b) {\n"
+        "    int32_t res;\n"
+        "    res = a;\n"
+        "    bool _t3 = b > a;\n"
+        "    if (!_t3) goto L0;\n"
+        "    res = b;\n"
+        "    goto L1;\n"
+        "L0:;\n"
+        "    res = a;\n"
+        "L1:;\n"
+        "    return res;\n"
+        "}\n\n";
+
+    EXPECT_EQ(c_code, expected);
+}
+
+TEST(C99CodeGenTest, WhileLoopAndBreakContinue) {
+    StringInterner             interner;
+    constexpr std::string_view code = R"(
+        fun count_down(start: int32) -> int32 {
+            var n: int32 = start;
+            while n > 0 {
+                if n == 5 {
+                    break;
+                }
+                n = n - 1;
+            }
+            return n;
+        }
+    )";
+
+    std::string c_code = CompileToC99(code, interner);
+
+    const std::string expected =
+        "#include <stdint.h>\n"
+        "#include <stdbool.h>\n\n"
+        "int32_t count_down(int32_t start) {\n"
+        "    int32_t n;\n"
+        "    n = start;\n"
+        "L0:;\n"
+        "    bool _t2 = n > 0;\n"
+        "    if (!_t2) goto L1;\n"
+        "    bool _t3 = n == 5;\n"
+        "    if (!_t3) goto L2;\n"
+        "    goto L1;\n"
+        "L2:;\n"
+        "    int32_t _t4 = n - 1;\n"
+        "    n = _t4;\n"
+        "    goto L0;\n"
+        "L1:;\n"
+        "    return n;\n"
+        "}\n\n";
+
+    EXPECT_EQ(c_code, expected);
+}
+
+}  // namespace

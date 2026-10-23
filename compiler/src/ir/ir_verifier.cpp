@@ -69,6 +69,20 @@ std::vector<Diagnostic> verify_function(const IrFunction& func, const StringInte
         return errors;
     }
 
+    std::vector<uint8_t> label_defined(func.label_names.size(), 0);
+    for (const auto& inst : func.instructions) {
+        if (inst.op == IrOpcode::Label && inst.label < func.label_names.size()) {
+            if (label_defined[inst.label] != 0) {
+                report_error(
+                    errors, func.name_id,
+                    std::format("Duplicate definition of label ${}", inst.label),
+                    interner
+                );
+            }
+            label_defined[inst.label] = 1;
+        }
+    }
+
     for (size_t i = 0; i < func.instructions.size(); ++i) {
         const auto& inst = func.instructions[i];
 
@@ -184,6 +198,53 @@ std::vector<Diagnostic> verify_function(const IrFunction& func, const StringInte
                         interner
                     );
                 }
+            }
+        } else if (inst.op == IrOpcode::Label) {
+            if (inst.label >= func.label_names.size()) {
+                report_error(
+                    errors, func.name_id,
+                    std::format("Label ID ${} is out of bounds (total labels: {})",
+                                inst.label, func.label_names.size()),
+                    interner
+                );
+            }
+        } else if (inst.op == IrOpcode::Jump) {
+            if (inst.label >= func.label_names.size()) {
+                report_error(
+                    errors, func.name_id,
+                    std::format("Jump target label ${} is out of bounds (total labels: {})",
+                                inst.label, func.label_names.size()),
+                    interner
+                );
+            } else if (label_defined[inst.label] == 0) {
+                report_error(
+                    errors, func.name_id,
+                    std::format("Jump target label ${} is never defined", inst.label),
+                    interner
+                );
+            }
+        } else if (inst.op == IrOpcode::BranchIfFalse) {
+            if (inst.label >= func.label_names.size()) {
+                report_error(
+                    errors, func.name_id,
+                    std::format("Branch target label ${} is out of bounds (total labels: {})",
+                                inst.label, func.label_names.size()),
+                    interner
+                );
+            } else if (label_defined[inst.label] == 0) {
+                report_error(
+                    errors, func.name_id,
+                    std::format("Branch target label ${} is never defined", inst.label),
+                    interner
+                );
+            }
+            if (verify_operand(func, inst.src1, "Branch condition", errors, interner) &&
+                inst.src1.type != IrType::Bool) {
+                report_error(
+                    errors, func.name_id,
+                    "Branch condition operand must have bool type",
+                    interner
+                );
             }
         }
     }
