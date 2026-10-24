@@ -260,3 +260,4 @@ TEST(IrVmTest, WhileLoopBreakAndContinue) {
     EXPECT_TRUE(result.ok());
     EXPECT_EQ(result.value, 12);
 }
+

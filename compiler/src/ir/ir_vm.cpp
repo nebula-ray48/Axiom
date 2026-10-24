@@ -1,7 +1,7 @@
 #include "axiom/ir/ir_vm.h"
 
-#include <limits>
 #include <cassert>
+#include <limits>
 
 namespace axiom::ir {
 
@@ -54,9 +54,9 @@ IrVm::VmResult IrVm::execute(const IrFunction& func, std::span<const int64_t> ar
                 break;
 
             case IrOpcode::Add: {
-                int64_t a = get_value(inst.src1);
-                int64_t b = get_value(inst.src2);
-                auto sum = static_cast<int32_t>(static_cast<uint32_t>(a) + static_cast<uint32_t>(b));
+                int64_t a   = get_value(inst.src1);
+                int64_t b   = get_value(inst.src2);
+                auto    sum = static_cast<int32_t>(static_cast<uint32_t>(a) + static_cast<uint32_t>(b));
                 if (inst.dest.reg < registers.size()) {
                     registers[inst.dest.reg] = sum;
                 }
@@ -64,9 +64,9 @@ IrVm::VmResult IrVm::execute(const IrFunction& func, std::span<const int64_t> ar
             }
 
             case IrOpcode::Sub: {
-                int64_t a = get_value(inst.src1);
-                int64_t b = get_value(inst.src2);
-                auto diff = static_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b));
+                int64_t a    = get_value(inst.src1);
+                int64_t b    = get_value(inst.src2);
+                auto    diff = static_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b));
                 if (inst.dest.reg < registers.size()) {
                     registers[inst.dest.reg] = diff;
                 }
@@ -74,9 +74,9 @@ IrVm::VmResult IrVm::execute(const IrFunction& func, std::span<const int64_t> ar
             }
 
             case IrOpcode::Mul: {
-                int64_t a = get_value(inst.src1);
-                int64_t b = get_value(inst.src2);
-                auto prod = static_cast<int32_t>(static_cast<uint32_t>(a) * static_cast<uint32_t>(b));
+                int64_t a    = get_value(inst.src1);
+                int64_t b    = get_value(inst.src2);
+                auto    prod = static_cast<int32_t>(static_cast<uint32_t>(a) * static_cast<uint32_t>(b));
                 if (inst.dest.reg < registers.size()) {
                     registers[inst.dest.reg] = prod;
                 }
@@ -87,10 +87,10 @@ IrVm::VmResult IrVm::execute(const IrFunction& func, std::span<const int64_t> ar
                 int64_t a = get_value(inst.src1);
                 int64_t b = get_value(inst.src2);
                 if (b == 0) {
-                    return VmResult { .value = 0, .trap = TrapCode::IntegerDivideByZero };
+                    return VmResult{.value = 0, .trap = TrapCode::IntegerDivideByZero};
                 }
                 if (static_cast<int32_t>(a) == std::numeric_limits<int32_t>::min() && static_cast<int32_t>(b) == -1) {
-                    return VmResult { .value = 0, .trap = TrapCode::IntegerOverflow };
+                    return VmResult{.value = 0, .trap = TrapCode::IntegerOverflow};
                 }
                 auto quot = static_cast<int32_t>(a) / static_cast<int32_t>(b);
                 if (inst.dest.reg < registers.size()) {
@@ -144,7 +144,7 @@ IrVm::VmResult IrVm::execute(const IrFunction& func, std::span<const int64_t> ar
                     pc = label_to_pc[inst.label];
                     continue;
                 }
-                return VmResult { .value = 0, .trap = TrapCode::InvalidInstruction };
+                return VmResult{.value = 0, .trap = TrapCode::InvalidInstruction};
 
             case IrOpcode::BranchIfFalse: {
                 int64_t cond = get_value(inst.src1);
@@ -153,24 +153,23 @@ IrVm::VmResult IrVm::execute(const IrFunction& func, std::span<const int64_t> ar
                         pc = label_to_pc[inst.label];
                         continue;
                     }
-                    return VmResult { .value = 0, .trap = TrapCode::InvalidInstruction };
+                    return VmResult{.value = 0, .trap = TrapCode::InvalidInstruction};
                 }
                 break;
             }
 
             case IrOpcode::Return: {
                 int64_t ret_val = (inst.src1.kind != IrOperandKind::None) ? get_value(inst.src1) : 0;
-                return VmResult { .value = ret_val, .trap = TrapCode::None };
+                return VmResult{.value = ret_val, .trap = TrapCode::None};
             }
 
-            default:
-                return VmResult { .value = 0, .trap = TrapCode::InvalidInstruction };
+            default: return VmResult{.value = 0, .trap = TrapCode::InvalidInstruction};
         }
 
         pc++;
     }
 
-    return VmResult { .value = 0, .trap = TrapCode::None };
+    return VmResult{.value = 0, .trap = TrapCode::None};
 }
 
-} // namespace axiom::ir
+}  // namespace axiom::ir
