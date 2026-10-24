@@ -7,11 +7,13 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+file(GLOB_RECURSE AXIOM_TEST_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cpp
+)
+
 add_executable(axiom-test
     main.cpp
-    unit/test_compiler.cpp
-    unit/test_ir.cpp
-    unit/test_c99_codegen.cpp
+    ${AXIOM_TEST_SOURCES}
 )
 
 target_link_libraries(axiom-test PRIVATE

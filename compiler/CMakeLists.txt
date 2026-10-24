@@ -21,30 +21,12 @@ endif()
 # -------------------------------------------------------------
 # Axiom Core Compiler Library (C++23)
 # -------------------------------------------------------------
-set(AXIOM_CORE_HEADERS
-    include/axiom/base/compiler.h
-    include/axiom/base/diagnostic.h
-    include/axiom/base/registry.h
-    include/axiom/syntax/analyzer.h
-    include/axiom/sema/type_system.h
-    include/axiom/sema/symbol_table.h
-    include/axiom/sema/type_checker.h
-    include/axiom/ir/ir.h
-    include/axiom/ir/ir_builder.h
-    include/axiom/ir/ir_printer.h
-    include/axiom/ir/ir_verifier.h
-    include/axiom/codegen/c99_codegen.h
+file(GLOB_RECURSE AXIOM_CORE_HEADERS CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/axiom/*.h
 )
 
-set(AXIOM_CORE_SOURCES
-    src/base/compiler.cpp
-    src/syntax/analyzer.cpp
-    src/sema/symbol_table.cpp
-    src/sema/type_checker.cpp
-    src/ir/ir_builder.cpp
-    src/ir/ir_printer.cpp
-    src/ir/ir_verifier.cpp
-    src/codegen/c99_codegen.cpp
+file(GLOB_RECURSE AXIOM_CORE_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
 )
 
 add_library(axiom-core STATIC
