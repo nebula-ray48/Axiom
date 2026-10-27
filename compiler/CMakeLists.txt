@@ -32,6 +32,8 @@ file(GLOB_RECURSE AXIOM_CORE_SOURCES CONFIGURE_DEPENDS
 add_library(axiom-core STATIC
     ${AXIOM_CORE_HEADERS}
     ${AXIOM_CORE_SOURCES}
+        include/axiom/target/arm64.h
+        src/target/arm64.cpp
 )
 
 target_include_directories(axiom-core PUBLIC

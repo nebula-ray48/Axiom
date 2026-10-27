@@ -14,6 +14,7 @@ file(GLOB_RECURSE AXIOM_TEST_SOURCES CONFIGURE_DEPENDS
 add_executable(axiom-test
     main.cpp
     ${AXIOM_TEST_SOURCES}
+        unit/test_arm64.cpp
 )
 
 target_link_libraries(axiom-test PRIVATE
