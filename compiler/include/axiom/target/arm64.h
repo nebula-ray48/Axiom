@@ -43,8 +43,8 @@ inline constexpr WReg w27{27};
 inline constexpr WReg w28{28};
 inline constexpr WReg w29{29};
 inline constexpr WReg w30{30};
-inline constexpr WReg wzr{31}; // Zero Register (32-bit)
-inline constexpr WReg wsp{31}; // Stack Pointer (32-bit)
+inline constexpr WReg wzr{31};  // Zero Register (32-bit)
+inline constexpr WReg wsp{31};  // Stack Pointer (32-bit)
 
 /// 64-bit general purpose registers (x0 - x30) and zero/stack register (31)
 inline constexpr XReg x0{0};
@@ -79,19 +79,19 @@ inline constexpr XReg x28{28};
 inline constexpr XReg x29{29};
 inline constexpr XReg fp{29};  // Frame Pointer (x29 alias)
 inline constexpr XReg x30{30};
-inline constexpr XReg lr{30};  // Link Register (x30 alias)
-inline constexpr XReg xzr{31}; // Zero Register (64-bit)
-inline constexpr XReg sp{31};  // Stack Pointer (64-bit)
-} // namespace reg
+inline constexpr XReg lr{30};   // Link Register (x30 alias)
+inline constexpr XReg xzr{31};  // Zero Register (64-bit)
+inline constexpr XReg sp{31};   // Stack Pointer (64-bit)
+}  // namespace reg
 
 enum class Cond : uint8_t {
-    EQ = 0x0, // Equal (Z == 1)
-    NE = 0x1, // Not equal (Z == 0)
-    GE = 0xA, // Signed Greater than or equal (N == V)
-    LT = 0xB, // Signed Less than (N != V)
-    GT = 0xC, // Signed Greater than (Z == 0 && N == V)
-    LE = 0xD, // Signed Less than or equal (Z == 1 || N != V)
-    AL = 0xE, // Always (無条件・常に成立)
+    EQ = 0x0,  // Equal (Z == 1)
+    NE = 0x1,  // Not equal (Z == 0)
+    GE = 0xA,  // Signed Greater than or equal (N == V)
+    LT = 0xB,  // Signed Less than (N != V)
+    GT = 0xC,  // Signed Greater than (Z == 0 && N == V)
+    LE = 0xD,  // Signed Less than or equal (Z == 1 || N != V)
+    AL = 0xE,  // Always (無条件・常に成立)
 };
 
 // ============================================================================
@@ -192,4 +192,4 @@ uint32_t encode_ret(XReg rn = reg::lr);
 /// No Operation（nop）
 uint32_t encode_nop();
 
-} // namespace axiom::arm64
+}  // namespace axiom::arm64

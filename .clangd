@@ -6,4 +6,4 @@ Diagnostics:
     - -Wmissing-field-initializers
 
 CompileFlags:
-  CompilationDatabase: cmake-build-debug
+  CompilationDatabase: build

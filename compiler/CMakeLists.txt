@@ -34,6 +34,8 @@ add_library(axiom-core STATIC
     ${AXIOM_CORE_SOURCES}
         include/axiom/target/arm64.h
         src/target/arm64.cpp
+        include/axiom/jit/jit_arena.h
+        src/jit/jit_arena.cpp
 )
 
 target_include_directories(axiom-core PUBLIC
