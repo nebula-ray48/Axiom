@@ -28,8 +28,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Cache CMake Dependencies
         uses: actions/cache@v4

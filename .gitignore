@@ -25,6 +25,7 @@ node_modules/
 **/node_modules/
 **/build/
 package-lock.json
+editors/zed-axiom/grammars/nexa/
 
 # CMake / C++ Build
 **/build/
