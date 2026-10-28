@@ -1,0 +1,62 @@
+name: "Task / Implementation Task"
+description: "Plan or track an implementation task, phase milestone, or refactoring"
+title: "[Task]: "
+labels: ["type:task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for internal development tasks, roadmap phases (P5, P6, etc.), and refactoring.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Target Component
+      description: Which part of the Axiom / Nexa system does this task belong to?
+      options:
+        - "JIT Compiler (Arm64NaiveJit, JitArena)"
+        - "IR & Bytecode VM (IrBuilder, IrVm, Verifier)"
+        - "Frontend & Semantic (Lexer, Parser, TypeChecker, SymbolTable)"
+        - "Target Architecture & Encoders (ARM64, x86-64)"
+        - "Language Syntax & Grammar (Tree-sitter, .axi/.ax)"
+        - "Vanta Engine & Runtime"
+        - "Build System, CI & Tooling"
+    validations:
+      required: true
+
+  - type: input
+    id: phase
+    attributes:
+      label: Roadmap Phase
+      description: e.g. P5 (Naive JIT), P6 (Register Allocation), P7 (IR Optimization)
+      placeholder: "P5: Naive JIT"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Summary & Goal
+      description: A clear and concise description of what needs to be implemented and why.
+      placeholder: "Describe the goal and architectural intent of this task..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Implementation Checklist
+      description: Detailed steps and acceptance criteria.
+      value: |
+        - [ ] Step 1: Design data structure and memory layout
+        - [ ] Step 2: Implement core algorithm / lowering
+        - [ ] Step 3: Add unit tests & differential tests against IrVm
+        - [ ] Step 4: Verify zero-allocation and DOD compliance
+    validations:
+      required: true
+
+  - type: textarea
+    id: design_notes
+    attributes:
+      label: Design Notes & Hardware/ABI Invariants
+      description: Any alignment constraints, calling convention notes (AAPCS64), register usage, or DOD rules.
+      placeholder: "e.g., Stack must be 16-byte aligned; w8-w10 used as caller-saved scratches..."
+

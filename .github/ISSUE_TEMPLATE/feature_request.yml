@@ -1,0 +1,64 @@
+name: "Feature Request / RFC"
+description: "Propose a new language feature, syntax extension, optimization, or architecture RFC"
+title: "[Feature]: "
+labels: ["type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for Axiom or the Vanta engine? Let's discuss syntax, semantics, and implementation trade-offs!
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      options:
+        - "Language Syntax & Semantics (.axi / .ax, keywords, expressions)"
+        - "Type System & Type Inference"
+        - "JIT / AOT Compiler Optimization"
+        - "Hardware Target / SIMD Vectorization"
+        - "Standard Library & Built-in Modules"
+        - "Developer Experience (IDE, LSP, Debugger, Tree-sitter)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Problem & Motivation
+      description: What problem does this proposal solve? What use case does it enable?
+      placeholder: "e.g., C++ header files cause slow compilation due to text inclusion; we want explicit interface separation with AST binding..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution & Syntax Example
+      description: Explain the design and provide code examples showing how it would look in Axiom.
+      render: c++
+      placeholder: |
+        // .axi (interface)
+        fun calculate(x: int32) -> int32;
+
+        // .ax (implementation)
+        fun calculate(x: int32) -> int32 {
+            return x * 2;
+        }
+    validations:
+      required: true
+
+  - type: textarea
+    id: dod_and_perf
+    attributes:
+      label: Performance & Data-Oriented Design (DOD) Impact
+      description: How does this proposal align with zero-overhead abstractions, flat buffers, and cache efficiency?
+      placeholder: "e.g., Does not introduce virtual dispatch or heap allocations in hot paths..."
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches did you consider and why were they rejected?
+      placeholder: "Describe alternative syntax or designs..."
+

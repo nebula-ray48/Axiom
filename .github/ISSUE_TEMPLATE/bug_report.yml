@@ -1,0 +1,76 @@
+name: "Bug Report"
+description: "Report a bug, crash, incorrect code generation, or test failure"
+title: "[Bug]: "
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Axiom / Nexa! Please fill out the sections below.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      options:
+        - "JIT Lowering / Native Execution"
+        - "IrVm Execution / Semantics"
+        - "Type Checker / Semantic Analysis"
+        - "Tree-sitter Parser / Grammar"
+        - "ARM64 Encoder"
+        - "C99 Code Generation"
+        - "Build System / CMake"
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug Summary
+      description: A concise description of what went wrong.
+      placeholder: "e.g., Naive JIT crashes with SIGBUS on 32-bit constant load..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro_code
+    attributes:
+      label: Minimal Reproducible Code (.ax or C++ Test)
+      description: Please provide the smallest possible Axiom source snippet or GTest that triggers the bug.
+      render: c++
+      placeholder: |
+        fun trigger_bug() -> int32 {
+            // minimal code here
+            return 0;
+        }
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+      placeholder: "e.g., Should return 42 or emit a TypeCheck diagnostic error..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior & Error Output
+      description: What actually happened? Please paste the full compiler diagnostic, GTest failure, or LLDB backtrace.
+      render: shell
+      placeholder: "Paste assertion error, backtrace, or terminal output..."
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment & Hardware
+      description: OS version, CPU Architecture, and Clang version.
+      placeholder: "macOS 15.x (Apple Silicon M1/M2/M3 ARM64), Apple Clang 16.0"
+    validations:
+      required: false
+
