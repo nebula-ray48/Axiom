@@ -122,8 +122,8 @@ fun calculate_damage(base_attack: int32, defense: int32) -> int32 {
 ### Build from Source
 ```bash
 # Clone with recursive submodules (Tree-sitter grammar)
-git clone --recursive https://github.com/Nebula-Ray42/nexa.git
-cd nexa
+git clone --recursive https://github.com/Nebula-Ray42/axiom.git
+cd axiom
 
 # Configure and build
 cmake -B build -DCMAKE_BUILD_TYPE=Release
