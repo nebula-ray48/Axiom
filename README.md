@@ -20,7 +20,7 @@
 
 ---
 
-## ⚡ What is Axiom?
+## What is Axiom?
 
 **Axiom** is a high-performance systems programming language designed from the ground up for **Data-Oriented Design (DOD)** and game engine architectures. 
 
@@ -30,7 +30,7 @@ Currently bootstrapped in **modern C++23** with a **custom Tree-sitter grammar**
 
 ---
 
-## 🛠️ Architecture & Pipeline
+## Architecture & Pipeline
 
 Axiom prioritizes deterministic throughput, zero runtime heap allocations in hot paths, and multi-tier differential verification:
 
@@ -55,7 +55,7 @@ flowchart TD
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 * **Data-Oriented by Default**: Declare intuitive components; the compiler automatically arranges them into cache-aligned parallel data streams (Structure of Arrays).
 * **Native Machine JIT**: Emits hardware-level ARM64 instructions directly into executable memory with microsecond execution latency.
@@ -65,7 +65,7 @@ flowchart TD
 
 ---
 
-## 💡 Syntax Preview
+## Syntax Preview
 
 ```axiom
 // Components are automatically vectorized into Structure of Arrays (SoA)
@@ -96,7 +96,7 @@ fun calculate_damage(base_attack: int32, defense: int32) -> int32 {
 
 ---
 
-## 🚦 Roadmap & Progress
+## Roadmap & Progress
 
 | Phase | Milestone | Description | Status |
 | :---: | :--- | :--- | :---: |
@@ -112,7 +112,7 @@ fun calculate_damage(base_attack: int32, defense: int32) -> int32 {
 
 ---
 
-## 💻 Building & Testing
+## Building & Testing
 
 ### Prerequisites
 * **CMake** (3.24 or newer)
@@ -148,7 +148,7 @@ Axiom uses **Google Test** and **CTest** for Test-Driven Development (TDD).
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the **[Mozilla Public License 2.0 (MPL-2.0)](LICENSE)**.
 
