@@ -1,60 +1,63 @@
-name: CI & Deployment
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "feat/**" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-test:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: Linux-x64
-            os: ubuntu-latest
-            cmake_args: ""
-          - name: macOS-Latest
+          - name: macOS-ARM64
             os: macos-latest
+            cmake_args: ""
+          - name: Linux-x64
+            os: ubuntu-24.04
             cmake_args: ""
           - name: Windows-x64
             os: windows-latest
             cmake_args: "-A x64"
-          - name: Windows-x86
-            os: windows-latest
-            cmake_args: "-A Win32"
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Cache CMake dependencies
-        uses: actions/cache@v3
+      - name: Cache CMake Dependencies
+        uses: actions/cache@v4
         with:
           path: build/_deps
           key: ${{ runner.os }}-cmake-deps-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-deps-
 
       - name: Configure CMake
         run: cmake -B build -S . ${{ matrix.cmake_args }} -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build Nexa
-        run: cmake --build build --config Release --parallel 4
+      - name: Build Axiom & Tests
+        run: cmake --build build --config Release --parallel
 
-      - name: Run Tests (GTest)
-        working-directory: build
-        run: ctest -C Release --output-on-failure
+      - name: Run Test Suite (Parallel CTest)
+        run: ctest --test-dir build -C Release --output-on-failure --parallel 4
 
       - name: Upload Artifacts
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Build-${{ matrix.name }}
+          name: axiom-binaries-${{ matrix.name }}
           path: |
-            build/tests/nexa-test*
-            build/tests/Release/nexa-test*
-            build/nexa-cli*
-            build/Release/nexa-cli*
-          retention-days: 14
+            build/compiler/axc*
+            build/compiler/Release/axc*
+            build/compiler/driver/axc*
+            build/compiler/driver/Release/axc*
+            build/tests/axiom-test*
+            build/tests/Release/axiom-test*
+          retention-days: 7
