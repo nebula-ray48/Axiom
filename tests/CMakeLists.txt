@@ -15,6 +15,7 @@ add_executable(axiom-test
     main.cpp
     ${AXIOM_TEST_SOURCES}
         unit/test_arm64.cpp
+        unit/test_arm64_naive_jit.cpp
 )
 
 target_link_libraries(axiom-test PRIVATE

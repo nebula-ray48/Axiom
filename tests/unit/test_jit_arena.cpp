@@ -1,7 +1,7 @@
-#include <gtest/gtest.h>
-
 #include <array>
 #include <cstdint>
+
+#include <gtest/gtest.h>
 
 #include "axiom/jit/jit_arena.h"
 #include "axiom/target/arm64.h"
@@ -33,7 +33,6 @@ TEST(JitArenaTest, ReturnConstant42) {
 
 TEST(JitArenaTest, AddTwoArguments) {
     JitCodeArena arena;
-
     // AAPCS64: 第1引数 = w0, 第2引数 = w1, 戻り値 = w0
     // add w0, w0, w1
     // ret
@@ -43,11 +42,11 @@ TEST(JitArenaTest, AddTwoArguments) {
     };
 
     size_t offset = arena.emit_function(code);
-    auto add_fn   = arena.get_function<int32_t(int32_t, int32_t)>(offset);
+    auto   add_fn = arena.get_function<int32_t(int32_t, int32_t)>(offset);
 
     EXPECT_EQ(add_fn(15, 27), 42);
     EXPECT_EQ(add_fn(-100, 250), 150);
-    EXPECT_EQ(add_fn(2147483647, 1), -2147483648); // 32-bit wrap-around on real hardware!
+    EXPECT_EQ(add_fn(2147483647, 1), -2147483648);  // 32-bit wrap-around on real hardware!
 }
 
 TEST(JitArenaTest, ComplexArithmetic5Args) {
@@ -62,8 +61,8 @@ TEST(JitArenaTest, ComplexArithmetic5Args) {
         encode_ret(),
     };
 
-    size_t offset = arena.emit_function(code);
-    auto calc_fn  = arena.get_function<int32_t(int32_t, int32_t, int32_t, int32_t, int32_t)>(offset);
+    size_t offset  = arena.emit_function(code);
+    auto   calc_fn = arena.get_function<int32_t(int32_t, int32_t, int32_t, int32_t, int32_t)>(offset);
 
     // ((10 + 20) * 4 / 3) - 5 = (30 * 4 / 3) - 5 = 40 - 5 = 35
     EXPECT_EQ(calc_fn(10, 20, 4, 3, 5), 35);
@@ -129,7 +128,7 @@ TEST(JitArenaTest, NativeLoopAccumulator) {
     };
 
     size_t offset = arena.emit_function(code);
-    auto sum_fn   = arena.get_function<int32_t(int32_t)>(offset);
+    auto   sum_fn = arena.get_function<int32_t(int32_t)>(offset);
 
     EXPECT_EQ(sum_fn(0), 0);
     EXPECT_EQ(sum_fn(10), 55);
@@ -160,4 +159,3 @@ TEST(JitArenaTest, ArenaResetZeroCostReuse) {
 }
 
 #endif
-

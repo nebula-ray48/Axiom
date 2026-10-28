@@ -36,6 +36,8 @@ add_library(axiom-core STATIC
         src/target/arm64.cpp
         include/axiom/jit/jit_arena.h
         src/jit/jit_arena.cpp
+        include/axiom/jit/arm64_naive_jit.h
+        src/jit/arm64_naive_jit.cpp
 )
 
 target_include_directories(axiom-core PUBLIC
