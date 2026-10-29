@@ -24,4 +24,6 @@ target_link_libraries(axiom-test PRIVATE
 set_axiom_warnings(axiom-test)
 
 include(GoogleTest)
-gtest_discover_tests(axiom-test)
+gtest_discover_tests(axiom-test
+    DISCOVERY_MODE PRE_TEST
+)
