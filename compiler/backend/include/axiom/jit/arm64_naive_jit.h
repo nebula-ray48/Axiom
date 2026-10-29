@@ -16,6 +16,13 @@
 
 namespace axiom::jit {
 
+struct BranchFixup {
+    size_t inst_index;
+    ir::LabelId target_label;
+    bool is_conditional;
+    arm64::WReg cond_reg;
+};
+
 class Arm64NaiveJit {
 public:
     /// IrFunction を ARM64 機械語列へコンパイルする
@@ -39,6 +46,10 @@ private:
 
     /// 指定レジスタ src の値を RegId のスタックスロットへストア
     void emit_store_reg(arm64::WReg src, ir::RegId dst_reg);
+
+    std::vector<size_t> label_offsets_;
+    
+    std::vector<BranchFixup> pending_fixups_;
 
     std::vector<uint32_t> code_;
     uint16_t              frame_size_ = 0;
