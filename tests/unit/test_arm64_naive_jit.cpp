@@ -220,4 +220,61 @@ TEST(Arm64NaiveJitTest, SubMulDivAndCompoundAssignmentDifferentialTest) {
     }
 }
 
+TEST(Arm64NaiveJitTest, AllComparisonOperatorsDifferentialTest) {
+    StringInterner interner;
+    constexpr std::string_view source = R"(
+        fun test_eq(a: int32, b: int32) -> bool { return a == b; }
+        fun test_ne(a: int32, b: int32) -> bool { return a != b; }
+        fun test_lt(a: int32, b: int32) -> bool { return a < b; }
+        fun test_le(a: int32, b: int32) -> bool { return a <= b; }
+        fun test_gt(a: int32, b: int32) -> bool { return a > b; }
+        fun test_ge(a: int32, b: int32) -> bool { return a >= b; }
+    )";
+
+    IrModule module = BuildIrFromSource(source, interner);
+    ASSERT_EQ(module.functions.size(), 6U);
+
+    const std::vector<std::pair<int32_t, int32_t>> test_pairs = {
+        {10, 20},
+        {20, 10},
+        {15, 15},
+        {-50, 50},
+        {50, -50},
+        {-30, -30},
+        {0, 0},
+        {0, 1},
+        {-1, 0},
+        {2147483647, -2147483648},
+        {-2147483648, 2147483647},
+        {2147483647, 2147483647},
+        {-2147483648, -2147483648},
+    };
+
+    IrVm vm;
+    JitCodeArena arena;
+
+    for (const auto& func : module.functions) {
+        std::vector<uint32_t> code = Arm64NaiveJit::compile(func);
+        ASSERT_FALSE(code.empty());
+
+        size_t offset = arena.emit_function(code);
+        auto jit_fn = arena.get_function<int32_t(int32_t, int32_t)>(offset);
+        ASSERT_NE(jit_fn, nullptr);
+
+        for (const auto& [a, b] : test_pairs) {
+            std::vector<int64_t> vm_args = {a, b};
+            auto vm_res = vm.execute(func, vm_args);
+            ASSERT_TRUE(vm_res.ok());
+
+            int32_t jit_res = jit_fn(a, b);
+            EXPECT_TRUE(jit_res == 0 || jit_res == 1)
+                << "Comparison result must be boolean 0 or 1, got " << jit_res;
+
+            EXPECT_EQ(jit_res, static_cast<int32_t>(vm_res.value))
+                << "Mismatch for function " << interner.GetString(func.name_id)
+                << " with inputs a=" << a << ", b=" << b;
+        }
+    }
+}
+
 #endif

@@ -94,6 +94,54 @@ std::vector<uint32_t> Arm64NaiveJit::compile(const ir::IrFunction& func) {
                 jit.emit_store_reg(reg::w8, inst.dest.reg);
                 break;
 
+            case ir::IrOpcode::CmpEq:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::EQ));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
+            case ir::IrOpcode::CmpNe:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::NE));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
+            case ir::IrOpcode::CmpLt:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::LT));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
+            case ir::IrOpcode::CmpLe:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::LE));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
+            case ir::IrOpcode::CmpGt:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::GT));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
+            case ir::IrOpcode::CmpGe:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::GE));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
             case ir::IrOpcode::Return:
                 if (inst.src1.kind != ir::IrOperandKind::None) {
                     jit.emit_load_operand(reg::w0, inst.src1);
@@ -102,7 +150,6 @@ std::vector<uint32_t> Arm64NaiveJit::compile(const ir::IrFunction& func) {
                 break;
 
             default:
-                // TODO 他の命令(Sub, Mul, 比較, 分岐)
                 break;
         }
     }
