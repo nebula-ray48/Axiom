@@ -11,44 +11,37 @@ target_include_directories(axiom-tree-sitter SYSTEM PUBLIC
     ${CMAKE_SOURCE_DIR}/grammar/tree-sitter-axiom/src
 )
 
+set_target_properties(axiom-tree-sitter PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+)
+
 # Suppress compiler warnings for third-party / generated C sources
 if(MSVC)
-    target_compile_options(axiom-tree-sitter PRIVATE /w)
+    target_compile_options(axiom-tree-sitter PRIVATE /std:c11 /w)
 else()
     target_compile_options(axiom-tree-sitter PRIVATE -w)
 endif()
 
 # -------------------------------------------------------------
-# Axiom Core Compiler Library (C++23)
+# Axiom Subsystems: Common, Frontend (Public), Backend (Core)
 # -------------------------------------------------------------
-file(GLOB_RECURSE AXIOM_CORE_HEADERS CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/axiom/*.h
+add_subdirectory(common)
+add_subdirectory(frontend)
+add_subdirectory(backend)
+
+# -------------------------------------------------------------
+# Axiom Core Composite Target (Aggregates subsystems)
+# -------------------------------------------------------------
+add_library(axiom-core INTERFACE)
+
+target_link_libraries(axiom-core INTERFACE
+    axiom-common
+    axiom-frontend
+    axiom-backend
 )
 
-file(GLOB_RECURSE AXIOM_CORE_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
-)
-
-add_library(axiom-core STATIC
-    ${AXIOM_CORE_HEADERS}
-    ${AXIOM_CORE_SOURCES}
-        include/axiom/target/arm64.h
-        src/target/arm64.cpp
-        include/axiom/jit/jit_arena.h
-        src/jit/jit_arena.cpp
-        include/axiom/jit/arm64_naive_jit.h
-        src/jit/arm64_naive_jit.cpp
-)
-
-target_include_directories(axiom-core PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-)
-
-target_link_libraries(axiom-core PUBLIC
-    axiom-tree-sitter
-)
-
-set_axiom_warnings(axiom-core)
-
+# -------------------------------------------------------------
+# Compiler CLI Driver
+# -------------------------------------------------------------
 add_subdirectory(driver)

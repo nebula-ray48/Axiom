@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 #include <tree_sitter/api.h>
 
+#include <array>
 #include <cstdint>
 #include <limits>
 #include <string_view>

@@ -24,7 +24,11 @@ if [ $# -eq 0 ]; then
 elif [ "$1" = "run" ]; then
     shift
     echo "🚀 axc を実行中..."
-    ./build/compiler/axc "$@"
+    if [ -f "./build/compiler/driver/axc" ]; then
+        ./build/compiler/driver/axc "$@"
+    else
+        ./build/compiler/axc "$@"
+    fi
 else
     echo "🔍 フィルタ付きテストを実行中: *$1*"
     ./build/tests/axiom-test --gtest_color=yes --gtest_filter="*$1*"

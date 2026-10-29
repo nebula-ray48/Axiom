@@ -56,6 +56,7 @@ void Arm64NaiveJit::emit_store_reg(WReg src, ir::RegId dst_reg) {
 std::vector<uint32_t> Arm64NaiveJit::compile(const ir::IrFunction& func) {
     Arm64NaiveJit jit;
     jit.emit_prologue(func);
+    jit.label_offsets_.assign(func.label_names.size(), 0);
 
     for (const auto& inst : func.instructions) {
         switch (inst.op) {
@@ -94,6 +95,54 @@ std::vector<uint32_t> Arm64NaiveJit::compile(const ir::IrFunction& func) {
                 jit.emit_store_reg(reg::w8, inst.dest.reg);
                 break;
 
+            case ir::IrOpcode::CmpEq:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::EQ));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
+            case ir::IrOpcode::CmpNe:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::NE));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
+            case ir::IrOpcode::CmpLt:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::LT));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
+            case ir::IrOpcode::CmpLe:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::LE));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
+            case ir::IrOpcode::CmpGt:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::GT));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
+            case ir::IrOpcode::CmpGe:
+                jit.emit_load_operand(reg::w9, inst.src1);
+                jit.emit_load_operand(reg::w10, inst.src2);
+                jit.emit(encode_cmp(reg::w9, reg::w10));
+                jit.emit(encode_cset(reg::w8, Cond::GE));
+                jit.emit_store_reg(reg::w8, inst.dest.reg);
+                break;
+
             case ir::IrOpcode::Return:
                 if (inst.src1.kind != ir::IrOperandKind::None) {
                     jit.emit_load_operand(reg::w0, inst.src1);
@@ -101,9 +150,47 @@ std::vector<uint32_t> Arm64NaiveJit::compile(const ir::IrFunction& func) {
                 jit.emit_epilogue();
                 break;
 
-            default:
-                // TODO 他の命令(Sub, Mul, 比較, 分岐)
+            case ir::IrOpcode::Label:
+                jit.label_offsets_[inst.label] = jit.code_.size();
                 break;
+
+            case ir::IrOpcode::Jump: {
+                size_t branch_idx = jit.code_.size();
+                jit.pending_fixups_.push_back({
+                    .inst_index     = branch_idx,
+                    .target_label   = inst.label,
+                    .is_conditional = false,
+                    .cond_reg       = reg::wzr,
+                });
+                jit.emit(encode_b(0));
+                break;
+            }
+
+            case ir::IrOpcode::BranchIfFalse: {
+                jit.emit_load_operand(reg::w9, inst.src1);
+                size_t branch_idx = jit.code_.size();
+                jit.pending_fixups_.push_back({
+                    .inst_index     = branch_idx,
+                    .target_label   = inst.label,
+                    .is_conditional = true,
+                    .cond_reg       = reg::w9,
+                });
+                jit.emit(encode_cbz(reg::w9, 0));
+                break;
+            }
+
+            default:
+                break;
+        }
+    }
+
+    for (const auto& fixup : jit.pending_fixups_) {
+        size_t target_idx = jit.label_offsets_[fixup.target_label];
+        int32_t offset = static_cast<int32_t>(target_idx) - static_cast<int32_t>(fixup.inst_index);
+        if (fixup.is_conditional) {
+            jit.code_[fixup.inst_index] = encode_cbz(fixup.cond_reg, offset);
+        } else {
+            jit.code_[fixup.inst_index] = encode_b(offset);
         }
     }
 

@@ -14,8 +14,6 @@ file(GLOB_RECURSE AXIOM_TEST_SOURCES CONFIGURE_DEPENDS
 add_executable(axiom-test
     main.cpp
     ${AXIOM_TEST_SOURCES}
-        unit/test_arm64.cpp
-        unit/test_arm64_naive_jit.cpp
 )
 
 target_link_libraries(axiom-test PRIVATE
@@ -26,4 +24,6 @@ target_link_libraries(axiom-test PRIVATE
 set_axiom_warnings(axiom-test)
 
 include(GoogleTest)
-gtest_discover_tests(axiom-test)
+gtest_discover_tests(axiom-test
+    DISCOVERY_MODE PRE_TEST
+)
