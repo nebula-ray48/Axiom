@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Nebula-Ray42/Axiom/actions/workflows/ci.yml">
+  <a href="https://github.com/nebula-ray42/Axiom/actions/workflows/ci.yml">
     <img src="https://github.com/Nebula-Ray42/nexa/actions/workflows/ci.yml/badge.svg" alt="CI Status" />
   </a>
   <img src="https://img.shields.io/badge/C%2B%2B-23-00599C?logo=cplusplus" alt="C++23" />
