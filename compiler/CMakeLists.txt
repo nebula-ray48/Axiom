@@ -11,9 +11,14 @@ target_include_directories(axiom-tree-sitter SYSTEM PUBLIC
     ${CMAKE_SOURCE_DIR}/grammar/tree-sitter-axiom/src
 )
 
+set_target_properties(axiom-tree-sitter PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+)
+
 # Suppress compiler warnings for third-party / generated C sources
 if(MSVC)
-    target_compile_options(axiom-tree-sitter PRIVATE /w)
+    target_compile_options(axiom-tree-sitter PRIVATE /std:c11 /w)
 else()
     target_compile_options(axiom-tree-sitter PRIVATE -w)
 endif()
