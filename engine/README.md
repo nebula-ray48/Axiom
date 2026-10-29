@@ -11,3 +11,4 @@ Vanta is a high-performance, Data-Oriented game engine built to seamlessly integ
 * `memory/`: Frame arenas, linear allocators, and SoA storage.
 * `render/`: Vulkan device contexts, render passes, and Slang shader pipelines.
 * `platform/`: OS windowing, input dispatch, and platform-specific backends.
+

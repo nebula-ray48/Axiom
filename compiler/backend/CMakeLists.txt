@@ -24,3 +24,4 @@ target_link_libraries(axiom-backend PUBLIC
 )
 
 set_axiom_warnings(axiom-backend)
+
