@@ -55,6 +55,7 @@ namespace axiom::ir {
         case IrOpcode::Label:  return "label";
         case IrOpcode::Jump:   return "jmp";
         case IrOpcode::BranchIfFalse: return "br_false";
+        case IrOpcode::Call:   return "call";
         default:               return "unknown";
     }
 }
@@ -70,6 +71,20 @@ namespace axiom::ir {
 
 /// IrModule 全体をテキスト形式にダンプする。
 [[nodiscard]] std::string dump_ir(
+    const IrModule& module,
+    const StringInterner* interner = nullptr,
+    bool use_reg_names = true
+);
+
+/// 1つの IrFunction の制御フローグラフ (CFG) を Graphviz DOT 形式でダンプする。
+[[nodiscard]] std::string dump_cfg_dot(
+    const IrFunction& func,
+    const StringInterner* interner = nullptr,
+    bool use_reg_names = true
+);
+
+/// IrModule 全体の制御フローグラフ (CFG) を Graphviz DOT 形式でダンプする。
+[[nodiscard]] std::string dump_cfg_dot(
     const IrModule& module,
     const StringInterner* interner = nullptr,
     bool use_reg_names = true

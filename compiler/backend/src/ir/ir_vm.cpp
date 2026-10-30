@@ -13,7 +13,9 @@
 
 namespace axiom::ir {
 
-IrVm::VmResult IrVm::execute(const IrFunction& func, std::span<const int64_t> args) {
+IrVm::VmResult IrVm::execute(const IrFunction&        func,
+                             std::span<const int64_t> args,
+                             const IrModule*          module) {
     // 1. レジスタスロットの準備
     std::vector<int64_t> registers(func.reg_types.size(), 0);
 
@@ -171,6 +173,44 @@ IrVm::VmResult IrVm::execute(const IrFunction& func, std::span<const int64_t> ar
                 return VmResult{.value = ret_val, .trap = TrapCode::None};
             }
 
+            case IrOpcode::Call: {
+                if (module == nullptr ||
+                    static_cast<size_t>(inst.arg_start) + inst.arg_count > func.call_args.size()) {
+                    return VmResult{.value = 0, .trap = TrapCode::InvalidInstruction};
+                    }
+
+                // 1. 呼び出し先関数を探索（再帰呼び出しなら &func 自身でも一致）
+                const IrFunction* callee = nullptr;
+                for (const auto& candidate : module->functions) {
+                    if (candidate.name_id == inst.call_func_name) {
+                        callee = &candidate;
+                        break;
+                    }
+                }
+                if (callee == nullptr) {
+                    return VmResult{.value = 0, .trap = TrapCode::InvalidInstruction};
+                }
+
+                // 2. 実引数スライス [arg_start .. arg_start + arg_count) の値を評価
+                std::vector<int64_t> call_arg_vals;
+                call_arg_vals.reserve(inst.arg_count);
+                for (uint32_t i = 0; i < inst.arg_count; ++i) {
+                    call_arg_vals.push_back(get_value(func.call_args[inst.arg_start + i]));
+                }
+
+                // 3. 呼び出し先を実行（トラップが起きたらそのまま上位へ伝播）
+                VmResult callee_res = execute(*callee, call_arg_vals, module);
+                if (!callee_res.ok()) {
+                    return callee_res;
+                }
+
+                // 4. 戻り値を dest レジスタへ格納
+                if (inst.dest.kind != IrOperandKind::None && inst.dest.reg < registers.size()) {
+                    registers[inst.dest.reg] = callee_res.value;
+                }
+                break;
+            }
+
             default: return VmResult{.value = 0, .trap = TrapCode::InvalidInstruction};
         }
 
@@ -178,6 +218,17 @@ IrVm::VmResult IrVm::execute(const IrFunction& func, std::span<const int64_t> ar
     }
 
     return VmResult{.value = 0, .trap = TrapCode::None};
+}
+
+IrVm::VmResult IrVm::execute(const IrModule&          module,
+                             StringID                 entry_func_id,
+                             std::span<const int64_t> args) {
+    for (const auto& func : module.functions) {
+        if (func.name_id == entry_func_id) {
+            return execute(func, args, &module);
+        }
+    }
+    return VmResult{.value = 0, .trap = TrapCode::InvalidInstruction};
 }
 
 }  // namespace axiom::ir

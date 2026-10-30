@@ -36,6 +36,7 @@ enum class IrOpcode : uint8_t {
     Label,  // ジャンプ先の目印（ターゲット）
     Jump,   // 無条件ジャンプ
     BranchIfFalse, // 条件が false (0) のときジャンプ
+    Call,   // 関数呼び出し命令
 };
 
 /// 値の種類
@@ -101,6 +102,9 @@ struct IrInstruction {
     IrOperand dest {}; // 格納先
     IrOperand src1 {}; // 入力1
     IrOperand src2 {}; // 入力2（単項やReturnならNone）
+    StringID call_func_name { kInvalidStringID };
+    uint32_t arg_start { 0 };
+    uint32_t arg_count { 0 };
 };
 
 /// 関数の仮引数
@@ -120,6 +124,7 @@ struct IrFunction {
     std::vector<IrType>        reg_types;
     std::vector<StringID>      reg_names;
     std::vector<StringID>      label_names;
+    std::vector<IrOperand>     call_args;
 
     RegId allocate_reg(IrType type, StringID reg_name_id = kInvalidStringID) {
         RegId new_reg = static_cast<RegId>(reg_types.size());

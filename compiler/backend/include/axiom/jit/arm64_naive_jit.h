@@ -9,6 +9,7 @@
 #pragma once
 
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 #include "axiom/ir/ir.h"
@@ -23,12 +24,28 @@ struct BranchFixup {
     arm64::WReg cond_reg;
 };
 
+struct CallFixup {
+    size_t   inst_index;       // bl 命令を置いた code_ 内のインデックス
+    StringID target_func_name; // 呼び出し先関数名
+};
+
+struct CompiledModule {
+    std::vector<uint32_t>                code;
+    std::unordered_map<StringID, size_t> func_inst_offsets; // 関数名 -> code 内の開始命令インデックス
+};
+
 class Arm64NaiveJit {
 public:
     /// IrFunction を ARM64 機械語列へコンパイルする
     [[nodiscard]] static std::vector<uint32_t> compile(const ir::IrFunction& func);
 
+    /// IrModule 内の全関数を単一の機械語バッファへ連結コンパイルし、関数間 bl を解決する
+    [[nodiscard]] static CompiledModule compile_module(const ir::IrModule& module);
+
 private:
+    /// code_ の末尾に関数1つ分の機械語を追記する内部ヘルパー
+    void compile_function(const ir::IrFunction& func);
+
     /// RegId から sp 基準のバイトオフセット (reg_id * 4) を計算
     [[nodiscard]] static constexpr uint32_t stack_offset(ir::RegId reg) noexcept { return reg * 4; }
 
@@ -50,6 +67,7 @@ private:
     std::vector<size_t> label_offsets_;
     
     std::vector<BranchFixup> pending_fixups_;
+    std::vector<CallFixup>   pending_calls_;
 
     std::vector<uint32_t> code_;
     uint16_t              frame_size_ = 0;

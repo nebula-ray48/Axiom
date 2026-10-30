@@ -322,6 +322,38 @@ IrOperand IrBuilder::build_expression(TSNode expr_node, IrFunction& current_func
         return temp;
     }
 
+    if (type == "call_expression") {
+        StringID callee_id = field_id(expr_node, "function");
+        TSNode args_node = child_by_field(expr_node, "arguments");
+        std::vector<IrOperand> evaluated_args;
+
+        if (!ts_node_is_null(args_node)) {
+            uint32_t arg_count = ts_node_named_child_count(args_node);
+            evaluated_args.reserve(arg_count);
+            for (uint32_t i = 0; i < arg_count; ++i) {
+                TSNode arg_expr = ts_node_named_child(args_node, i);
+                evaluated_args.push_back(build_expression(arg_expr, current_func));
+            }
+        }
+
+        uint32_t arg_start = static_cast<uint32_t>(current_func.call_args.size());
+        uint32_t arg_count = static_cast<uint32_t>(evaluated_args.size());
+        for (const IrOperand& arg_op : evaluated_args) {
+            current_func.call_args.push_back(arg_op);
+        }
+
+        IrOperand dest = allocate_temp(current_func, IrType::I32);
+        current_func.instructions.push_back(IrInstruction{
+            .op             = IrOpcode::Call,
+            .dest           = dest,
+            .call_func_name = callee_id,
+            .arg_start      = arg_start,
+            .arg_count      = arg_count,
+        });
+        return dest;
+
+    }
+
     return IrOperand::MakeNone();
 }
 
