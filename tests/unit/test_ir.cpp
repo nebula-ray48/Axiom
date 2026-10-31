@@ -498,5 +498,148 @@ TEST(IrBuilderTest, WhileLoopWithBreakAndContinue) {
     EXPECT_EQ(dump_ir(module, &interner, true), expected_named);
 }
 
+TEST(IrBuilderTest, DumpCfgDotWhileLoopAndIfElse) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun sum_to(n: int32) -> int32 {
+            var i: int32 = 0;
+            var total: int32 = 0;
+            while i < n {
+                i = i + 1;
+                total = total + i;
+            }
+            return total;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+    ASSERT_EQ(module.functions.size(), 1U);
+
+    const std::string expected_dot =
+        "digraph sum_to {\n"
+        "  node [shape=record, fontname=\"Courier\"];\n"
+        "  edge [fontname=\"Courier\"];\n"
+        "  BB0 [label=\"{BB0|alloca %i: i32\\l%i: i32 = assign 0: i32\\lalloca %total: i32\\l%total: i32 = assign 0: i32\\l}\"];\n"
+        "  BB1 [label=\"{BB1|label $L0\\l%3: bool = cmp_lt %i: i32, %n: i32\\lbr_false %3: bool, $L1\\l}\"];\n"
+        "  BB2 [label=\"{BB2|%4: i32 = add %i: i32, 1: i32\\l%i: i32 = assign %4: i32\\l%5: i32 = add %total: i32, %i: i32\\l%total: i32 = assign %5: i32\\ljmp $L0\\l}\"];\n"
+        "  BB3 [label=\"{BB3|label $L1\\lret %total: i32\\l}\"];\n"
+        "  BB0 -> BB1 [color=\"#64748b\"];\n"
+        "  BB1 -> BB2 [label=\"true\", color=\"#16a34a\"];\n"
+        "  BB1 -> BB3 [label=\"false\", color=\"#dc2626\", style=\"dashed\"];\n"
+        "  BB2 -> BB1 [label=\"jmp\", color=\"#2563eb\"];\n"
+        "}\n";
+
+    EXPECT_EQ(dump_cfg_dot(module.functions[0], &interner, true), expected_dot);
+
+    const std::string module_dot = dump_cfg_dot(module, &interner, true);
+    EXPECT_NE(module_dot.find("digraph Module"), std::string::npos);
+    EXPECT_NE(module_dot.find("subgraph cluster_sum_to"), std::string::npos);
+    EXPECT_NE(module_dot.find("fn0_BB1 -> fn0_BB2 [label=\"true\""), std::string::npos);
+    EXPECT_NE(module_dot.find("fn0_BB2 -> fn0_BB1 [label=\"jmp\""), std::string::npos);
+}
+
+TEST(IrBuilderTest, DumpIrAndCfgDotWithCallInstruction) {
+    StringInterner interner;
+    StringID main_id = interner.Intern("main");
+    StringID add_id  = interner.Intern("add");
+    StringID x_id    = interner.Intern("x");
+
+    IrFunction func;
+    func.name_id     = main_id;
+    func.return_type = IrType::I32;
+
+    RegId reg_x   = func.allocate_reg(IrType::I32, x_id);
+    RegId reg_tmp = func.allocate_reg(IrType::I32);
+
+    // call_args にフラットに引数を格納: (10, %x)
+    uint32_t arg_start = static_cast<uint32_t>(func.call_args.size());
+    func.call_args.push_back(IrOperand::MakeConst(10, IrType::I32));
+    func.call_args.push_back(IrOperand::MakeVar(reg_x, IrType::I32));
+
+    func.instructions.push_back(IrInstruction{
+        .op   = IrOpcode::Alloca,
+        .dest = IrOperand::MakeVar(reg_x, IrType::I32),
+    });
+    func.instructions.push_back(IrInstruction{
+        .op   = IrOpcode::Assign,
+        .dest = IrOperand::MakeVar(reg_x, IrType::I32),
+        .src1 = IrOperand::MakeConst(32, IrType::I32),
+    });
+    func.instructions.push_back(IrInstruction{
+        .op             = IrOpcode::Call,
+        .dest           = IrOperand::MakeTemp(reg_tmp, IrType::I32),
+        .call_func_name = add_id,
+        .arg_start      = arg_start,
+        .arg_count      = 2,
+    });
+    func.instructions.push_back(IrInstruction{
+        .op   = IrOpcode::Return,
+        .src1 = IrOperand::MakeTemp(reg_tmp, IrType::I32),
+    });
+
+    const std::string expected_ir =
+        "fun main() -> i32 {\n"
+        "  alloca %x: i32\n"
+        "  %x: i32 = assign 32: i32\n"
+        "  %1: i32 = call @add(10: i32, %x: i32)\n"
+        "  ret %1: i32\n"
+        "}\n";
+    EXPECT_EQ(dump_ir(func, &interner, true), expected_ir);
+
+    const std::string dot = dump_cfg_dot(func, &interner, true);
+    EXPECT_NE(dot.find("%1: i32 = call @add(10: i32, %x: i32)"), std::string::npos);
+}
+
+TEST(IrBuilderTest, CallExpressionAndNestedCallsFromSource) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun mul(a: int32, b: int32) -> int32 {
+            return a * b;
+        }
+        fun add(a: int32, b: int32) -> int32 {
+            return a + b;
+        }
+        fun compute(x: int32) -> int32 {
+            val res: int32 = add(mul(x, 2), 10);
+            return res;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+    ASSERT_EQ(module.functions.size(), 3U);
+    EXPECT_TRUE(verify_module(module, &interner).empty());
+
+    const IrFunction& compute_fn = module.functions[2];
+    // mul(x, 2) の2引数 + add(%2, 10) の2引数 = 合計4要素がフラットに格納される
+    ASSERT_EQ(compute_fn.call_args.size(), 4U);
+
+    const std::string expected_compute_ir =
+        "fun compute(%x: i32) -> i32 {\n"
+        "  alloca %res: i32\n"
+        "  %2: i32 = call @mul(%x: i32, 2: i32)\n"
+        "  %3: i32 = call @add(%2: i32, 10: i32)\n"
+        "  %res: i32 = assign %3: i32\n"
+        "  ret %res: i32\n"
+        "}\n";
+    EXPECT_EQ(dump_ir(compute_fn, &interner, true), expected_compute_ir);
+
+    // 不正な Call 命令の検証 (arg_start + arg_count が範囲外)
+    IrFunction bad_slice_fn = compute_fn;
+    bad_slice_fn.instructions[1].arg_count = 99;
+    auto slice_errors = verify_function(bad_slice_fn, &interner);
+    ASSERT_EQ(slice_errors.size(), 1U);
+    EXPECT_NE(slice_errors[0].message.find("out of bounds"), std::string::npos);
+
+    // 不正な Call 命令の検証 (call_func_name が kInvalidStringID)
+    IrFunction bad_callee_fn = compute_fn;
+    bad_callee_fn.instructions[1].call_func_name = kInvalidStringID;
+    auto callee_errors = verify_function(bad_callee_fn, &interner);
+    ASSERT_EQ(callee_errors.size(), 1U);
+    EXPECT_NE(callee_errors[0].message.find("invalid target function name"), std::string::npos);
+}
+
+
+
+
 
 

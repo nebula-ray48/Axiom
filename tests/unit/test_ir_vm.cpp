@@ -270,3 +270,67 @@ TEST(IrVmTest, WhileLoopBreakAndContinue) {
     EXPECT_EQ(result.value, 12);
 }
 
+TEST(IrVmTest, FunctionCallsAndNestedArguments) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun mul(a: int32, b: int32) -> int32 {
+            return a * b;
+        }
+        fun add(a: int32, b: int32) -> int32 {
+            return a + b;
+        }
+        fun compute(x: int32, y: int32) -> int32 {
+            val res: int32 = add(mul(x, 3), mul(y, 4));
+            return res;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+    ASSERT_EQ(module.functions.size(), 3U);
+
+    IrVm vm;
+    StringID compute_id = interner.Intern("compute");
+    // compute(5, 6) = 5*3 + 6*4 = 15 + 24 = 39
+    std::array<int64_t, 2> args = { 5, 6 };
+    IrVm::VmResult result = vm.execute(module, compute_id, args);
+
+    EXPECT_TRUE(result.ok());
+    EXPECT_EQ(result.value, 39);
+}
+
+TEST(IrVmTest, RecursiveFactorialAndFibonacci) {
+    StringInterner interner;
+    constexpr std::string_view code = R"(
+        fun fact(n: int32) -> int32 {
+            if n <= 1 {
+                return 1;
+            }
+            return n * fact(n - 1);
+        }
+        fun fib(n: int32) -> int32 {
+            if n <= 1 {
+                return n;
+            }
+            return fib(n - 1) + fib(n - 2);
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(code, interner);
+    ASSERT_EQ(module.functions.size(), 2U);
+
+    IrVm vm;
+    StringID fact_id = interner.Intern("fact");
+    StringID fib_id  = interner.Intern("fib");
+
+    // 5! = 120
+    IrVm::VmResult fact_res = vm.execute(module, fact_id, std::array<int64_t, 1>{ 5 });
+    EXPECT_TRUE(fact_res.ok());
+    EXPECT_EQ(fact_res.value, 120);
+
+    // fib(10) = 55
+    IrVm::VmResult fib_res = vm.execute(module, fib_id, std::array<int64_t, 1>{ 10 });
+    EXPECT_TRUE(fib_res.ok());
+    EXPECT_EQ(fib_res.value, 55);
+}
+
+

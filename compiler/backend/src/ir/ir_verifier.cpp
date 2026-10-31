@@ -231,6 +231,30 @@ std::vector<Diagnostic> verify_function(const IrFunction& func, const StringInte
                     interner
                 );
             }
+        }  else if (inst.op == IrOpcode::Call) {
+            if (inst.call_func_name == kInvalidStringID) {
+                report_error(errors, func.name_id, "Call instruction has invalid target function name", interner);
+            }
+            if (inst.dest.kind != IrOperandKind::None) {
+                if (inst.dest.kind != IrOperandKind::Variable && inst.dest.kind != IrOperandKind::Temporary) {
+                    report_error(errors, func.name_id, "Call destination must be a register operand", interner);
+                } else {
+                    verify_operand(func, inst.dest, "Call destination", errors, interner);
+                }
+            }
+            if (static_cast<size_t>(inst.arg_start) + inst.arg_count > func.call_args.size()) {
+                report_error(
+                    errors, func.name_id,
+                    std::format("Call argument slice [{}..{}) is out of bounds (call_args size: {})",
+                                inst.arg_start, inst.arg_start + inst.arg_count, func.call_args.size()),
+                    interner
+                );
+            } else {
+                for (uint32_t a = 0; a < inst.arg_count; ++a) {
+                    const IrOperand& arg_op = func.call_args[inst.arg_start + a];
+                    verify_operand(func, arg_op, "Call argument", errors, interner);
+                }
+            }
         } else if (inst.op == IrOpcode::BranchIfFalse) {
             if (inst.label >= func.label_names.size()) {
                 report_error(

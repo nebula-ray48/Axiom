@@ -31,7 +31,13 @@ public:
         [[nodiscard]] bool ok() const noexcept { return trap == TrapCode::None; }
     };
 
-    VmResult execute(const IrFunction& func, std::span<const int64_t> args = {});
+    VmResult execute(const IrFunction&        func,
+                 std::span<const int64_t> args   = {},
+                 const IrModule*          module = nullptr);
+    
+    VmResult execute(const IrModule&          module,
+                     StringID                 entry_func_id,
+                     std::span<const int64_t> args = {});
 
 private:
 };

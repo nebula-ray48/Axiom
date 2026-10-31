@@ -460,4 +460,117 @@ TEST(Arm64NaiveJitTest, NestedLoopsDifferentialTest) {
     }
 }
 
+TEST(Arm64NaiveJitTest, MultiFunctionCallsDifferentialTest) {
+    StringInterner interner;
+    constexpr std::string_view source = R"(
+        fun mul(a: int32, b: int32) -> int32 {
+            return a * b;
+        }
+        fun add(a: int32, b: int32) -> int32 {
+            return a + b;
+        }
+        fun square_diff(a: int32, b: int32) -> int32 {
+            return mul(a, a) - mul(b, b);
+        }
+        fun compute(x: int32, y: int32) -> int32 {
+            val part1: int32 = add(mul(x, 3), mul(y, 4));
+            val part2: int32 = square_diff(x, y);
+            return add(part1, part2);
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(source, interner);
+    ASSERT_EQ(module.functions.size(), 4U);
+
+    CompiledModule compiled = Arm64NaiveJit::compile_module(module);
+    ASSERT_FALSE(compiled.code.empty());
+
+    StringID compute_id = interner.Intern("compute");
+    ASSERT_TRUE(compiled.func_inst_offsets.contains(compute_id));
+
+    JitCodeArena arena;
+    size_t base_offset = arena.emit_function(compiled.code);
+    size_t compute_byte_offset = base_offset + compiled.func_inst_offsets.at(compute_id) * sizeof(uint32_t);
+    auto jit_compute = arena.get_function<int32_t(int32_t, int32_t)>(compute_byte_offset);
+    ASSERT_NE(jit_compute, nullptr);
+
+    IrVm vm;
+    const std::vector<std::pair<int32_t, int32_t>> test_cases = {
+        {0, 0},
+        {5, 6},
+        {10, 3},
+        {-4, 7},
+        {12, -8},
+        {100, 50},
+    };
+
+    for (const auto& [x, y] : test_cases) {
+        auto vm_res = vm.execute(module, compute_id, std::vector<int64_t>{x, y});
+        ASSERT_TRUE(vm_res.ok());
+
+        int32_t jit_res = jit_compute(x, y);
+        EXPECT_EQ(jit_res, static_cast<int32_t>(vm_res.value))
+            << "Multi-function call mismatch for x=" << x << ", y=" << y;
+    }
+}
+
+TEST(Arm64NaiveJitTest, RecursiveFactorialAndFibonacciDifferentialTest) {
+    StringInterner interner;
+    constexpr std::string_view source = R"(
+        fun fact(n: int32) -> int32 {
+            if n <= 1 {
+                return 1;
+            }
+            return n * fact(n - 1);
+        }
+        fun fib(n: int32) -> int32 {
+            if n <= 1 {
+                return n;
+            }
+            return fib(n - 1) + fib(n - 2);
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(source, interner);
+    ASSERT_EQ(module.functions.size(), 2U);
+
+    CompiledModule compiled = Arm64NaiveJit::compile_module(module);
+    ASSERT_FALSE(compiled.code.empty());
+
+    StringID fact_id = interner.Intern("fact");
+    StringID fib_id  = interner.Intern("fib");
+
+    JitCodeArena arena;
+    size_t base_offset = arena.emit_function(compiled.code);
+
+    auto jit_fact = arena.get_function<int32_t(int32_t)>(
+        base_offset + compiled.func_inst_offsets.at(fact_id) * sizeof(uint32_t));
+    auto jit_fib = arena.get_function<int32_t(int32_t)>(
+        base_offset + compiled.func_inst_offsets.at(fib_id) * sizeof(uint32_t));
+    ASSERT_NE(jit_fact, nullptr);
+    ASSERT_NE(jit_fib, nullptr);
+
+    IrVm vm;
+
+    // 1. 再帰階乗 fact(0) ~ fact(12)
+    for (int32_t n = 0; n <= 12; ++n) {
+        auto vm_res = vm.execute(module, fact_id, std::vector<int64_t>{n});
+        ASSERT_TRUE(vm_res.ok());
+
+        int32_t jit_res = jit_fact(n);
+        EXPECT_EQ(jit_res, static_cast<int32_t>(vm_res.value))
+            << "Recursive factorial mismatch for n=" << n;
+    }
+
+    // 2. 二重再帰フィボナッチ fib(0) ~ fib(15)
+    for (int32_t n = 0; n <= 15; ++n) {
+        auto vm_res = vm.execute(module, fib_id, std::vector<int64_t>{n});
+        ASSERT_TRUE(vm_res.ok());
+
+        int32_t jit_res = jit_fib(n);
+        EXPECT_EQ(jit_res, static_cast<int32_t>(vm_res.value))
+            << "Recursive fibonacci mismatch for n=" << n;
+    }
+}
+
 #endif
