@@ -37,12 +37,12 @@ uint32_t encode_mov_wide(uint32_t sf, uint32_t base_op, uint8_t rd, uint16_t imm
 }
 
 // 19-bit 符号付きオフセットの範囲検査 (-2^18 <= offset < 2^18)
-constexpr bool is_int19(int32_t offset) {
+[[maybe_unused]] constexpr bool is_int19(int32_t offset) {
     return offset >= -(1 << 18) && offset < (1 << 18);
 }
 
 // 26-bit 符号付きオフセットの範囲検査 (-2^25 <= offset < 2^25)
-constexpr bool is_int26(int32_t offset) {
+[[maybe_unused]] constexpr bool is_int26(int32_t offset) {
     return offset >= -(1 << 25) && offset < (1 << 25);
 }
 

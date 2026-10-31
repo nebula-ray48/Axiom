@@ -264,32 +264,4 @@ CompiledModule Arm64NaiveJit::compile_module(const ir::IrModule& module) {
     return result;
 }
 
-CompiledModule Arm64NaiveJit::compile_module(const ir::IrModule& module) {
-    Arm64NaiveJit  jit;
-    CompiledModule result;
-
-    for (const auto& func : module.functions) {
-        // 16バイト (4命令) アライメントに揃える
-        while (jit.code_.size() % 4 != 0) {
-            jit.emit(encode_nop());
-        }
-
-        size_t func_start_idx = jit.code_.size();
-        result.func_inst_offsets[func.name_id] = func_start_idx;
-        jit.compile_function(func);
-    }
-
-    // 全関数の開始オフセットが確定したら bl 命令を一括バックパッチ！
-    for (const auto& call_fixup : jit.pending_calls_) {
-        auto it = result.func_inst_offsets.find(call_fixup.target_func_name);
-        if (it != result.func_inst_offsets.end()) {
-            int32_t offset = static_cast<int32_t>(it->second) - static_cast<int32_t>(call_fixup.inst_index);
-            jit.code_[call_fixup.inst_index] = encode_bl(offset);
-        }
-    }
-
-    result.code = std::move(jit.code_);
-    return result;
-}
-
 }  // namespace axiom::jit
