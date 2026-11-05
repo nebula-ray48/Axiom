@@ -49,6 +49,9 @@ std::string C99CodeGen::format_operand(const ir::IrFunction& func, const ir::IrO
 }
 
 void C99CodeGen::generate_instruction(const ir::IrFunction& func, const ir::IrInstruction& inst, std::string& out) {
+    if (inst.op == ir::IrOpcode::Nop) {
+        return;
+    }
     if (inst.op == ir::IrOpcode::Alloca) {
         out += "    " + map_type(inst.dest.type) + " " + format_operand(func, inst.dest) + ";\n";
     } else if (inst.op == ir::IrOpcode::Assign) {

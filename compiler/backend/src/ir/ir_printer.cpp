@@ -71,6 +71,9 @@ std::string format_instruction(const IrFunction&     func,
                                bool                  use_reg_names) {
     std::string out;
     switch (inst.op) {
+        case IrOpcode::Nop:
+            out += "nop";
+            break;
         case IrOpcode::Alloca:
             out += "alloca " + format_operand(func, inst.dest, interner, use_reg_names);
             break;
