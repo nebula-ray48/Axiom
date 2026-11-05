@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "axiom/ir/ir.h"
+#include "axiom/jit/register_allocator.h"
 #include "axiom/target/arm64.h"
 
 namespace axiom::jit {
@@ -64,12 +65,19 @@ private:
     /// 指定レジスタ src の値を RegId のスタックスロットへストア
     void emit_store_reg(arm64::WReg src, ir::RegId dst_reg);
 
+    /// 入力オペランドが物理レジスタにあればそれを返し、定数/スピルなら scratch にロードして返す
+    arm64::WReg resolve_src(const ir::IrOperand& op, arm64::WReg scratch);
+
+    /// 出力先の仮想レジスタが物理レジスタにあればそれを返し、スピルなら scratch を返す
+    [[nodiscard]] arm64::WReg resolve_dst(ir::RegId dst_reg, arm64::WReg scratch) const noexcept;
+
     std::vector<size_t> label_offsets_;
     
     std::vector<BranchFixup> pending_fixups_;
     std::vector<CallFixup>   pending_calls_;
 
     std::vector<uint32_t> code_;
+    RegAllocResult        alloc_;
     uint16_t              frame_size_ = 0;
 };
 

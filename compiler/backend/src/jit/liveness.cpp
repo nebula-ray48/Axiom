@@ -1,3 +1,11 @@
+/*
+* Copyright (c) 2026 Nebula-Ray42
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with this file, You can obtain one at
+ * https://mozilla.org/MPL/2.0/.
+ */
+
 #include "axiom/jit/liveness.h"
 
 #include <algorithm>
@@ -7,7 +15,7 @@
 namespace axiom::jit {
 
 LivenessResult compute_liveness(const ir::IrFunction& func) {
-    size_t num_regs = func.reg_types.size();
+    size_t                    num_regs = func.reg_types.size();
     std::vector<LiveInterval> intervals(num_regs);
     for (uint32_t r = 0; r < num_regs; ++r) {
         intervals[r].reg   = r;
@@ -35,7 +43,7 @@ LivenessResult compute_liveness(const ir::IrFunction& func) {
 
         if (inst.op == ir::IrOpcode::Call) {
             uint32_t start_index = inst.arg_start;
-            uint32_t count = inst.arg_count;
+            uint32_t count       = inst.arg_count;
 
             for (uint32_t idx = start_index; idx < start_index + count; ++idx) {
                 record_use(func.call_args[idx], i);

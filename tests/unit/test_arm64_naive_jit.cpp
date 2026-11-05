@@ -573,4 +573,45 @@ TEST(Arm64NaiveJitTest, RecursiveFactorialAndFibonacciDifferentialTest) {
     }
 }
 
+TEST(Arm64NaiveJitTest, RegisterSpillExecutionDifferentialTest) {
+    // 10本の物理レジスタ (w19~w28) を超える 12 個の変数を同時に生存させ、
+    // レジスタ + スタックスピルの混在状態で計算結果が IrVm と完全一致することを検証する
+    StringInterner interner;
+    constexpr std::string_view source = R"(
+        fun heavy_spill(x: int32) -> int32 {
+            var a1: int32 = x + 1;
+            var a2: int32 = x + 2;
+            var a3: int32 = x + 3;
+            var a4: int32 = x + 4;
+            var a5: int32 = x + 5;
+            var a6: int32 = x + 6;
+            var a7: int32 = x + 7;
+            var a8: int32 = x + 8;
+            var a9: int32 = x + 9;
+            var a10: int32 = x + 10;
+            var a11: int32 = x + 11;
+            var a12: int32 = x + 12;
+            return a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12;
+        }
+    )";
+
+    IrModule module = BuildIrFromSource(source, interner);
+    ASSERT_EQ(module.functions.size(), 1U);
+
+    std::vector<uint32_t> code = Arm64NaiveJit::compile(module.functions[0]);
+    ASSERT_FALSE(code.empty());
+
+    JitCodeArena arena;
+    size_t offset = arena.emit_function(code);
+    auto jit_fn   = arena.get_function<int32_t(int32_t)>(offset);
+    ASSERT_NE(jit_fn, nullptr);
+
+    IrVm vm;
+    for (int32_t x : {0, 1, 10, -5, 100}) {
+        auto vm_res = vm.execute(module.functions[0], std::vector<int64_t>{x});
+        ASSERT_TRUE(vm_res.ok());
+        EXPECT_EQ(jit_fn(x), static_cast<int32_t>(vm_res.value));
+    }
+}
+
 #endif
