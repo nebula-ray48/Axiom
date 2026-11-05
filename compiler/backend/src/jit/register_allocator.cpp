@@ -1,3 +1,11 @@
+/*
+* Copyright (c) 2026 Nebula-Ray42
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with this file, You can obtain one at
+ * https://mozilla.org/MPL/2.0/.
+ */
+
 #include "axiom/jit/register_allocator.h"
 
 #include <algorithm>
@@ -22,7 +30,6 @@ RegAllocResult allocate_registers(const ir::IrFunction& func, const LivenessResu
     std::vector<ActiveEntry> active;
 
     for (const auto& current : liveness.sorted_intervals) {
-
         std::vector<ActiveEntry> next_active;
 
         for (const auto& entry : active) {
@@ -35,9 +42,8 @@ RegAllocResult allocate_registers(const ir::IrFunction& func, const LivenessResu
 
         active = std::move(next_active);
 
-        std::ranges::sort(active, [](const ActiveEntry& a, const ActiveEntry& b) {
-            return a.interval.end < b.interval.end;
-        });
+        std::ranges::sort(active,
+                          [](const ActiveEntry& a, const ActiveEntry& b) { return a.interval.end < b.interval.end; });
 
         if (!available_regs.empty()) {
             uint32_t phys_reg = available_regs.back();
@@ -55,21 +61,20 @@ RegAllocResult allocate_registers(const ir::IrFunction& func, const LivenessResu
             auto& spill_candidate = active.back();
 
             if (spill_candidate.interval.end > current.end) {
-                uint32_t slot = result.num_spill_slots++;
+                uint32_t slot                                        = result.num_spill_slots++;
                 result.locations[spill_candidate.interval.reg].kind  = StorageKind::StackSlot;
                 result.locations[spill_candidate.interval.reg].index = slot;
 
-                uint32_t phys_reg = spill_candidate.phys_reg;
+                uint32_t phys_reg                   = spill_candidate.phys_reg;
                 result.locations[current.reg].kind  = StorageKind::Register;
                 result.locations[current.reg].index = phys_reg;
                 result.used_registers_mask |= (1U << phys_reg);
 
                 spill_candidate.interval = current;
-                std::ranges::sort(active, [](const ActiveEntry& a, const ActiveEntry& b) {
-                    return a.interval.end < b.interval.end;
-                });
+                std::ranges::sort(
+                    active, [](const ActiveEntry& a, const ActiveEntry& b) { return a.interval.end < b.interval.end; });
             } else {
-                uint32_t slot = result.num_spill_slots++;
+                uint32_t slot                       = result.num_spill_slots++;
                 result.locations[current.reg].kind  = StorageKind::StackSlot;
                 result.locations[current.reg].index = slot;
             }

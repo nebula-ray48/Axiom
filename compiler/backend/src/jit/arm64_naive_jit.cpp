@@ -10,16 +10,24 @@
 
 #include <cassert>
 
+#include "axiom/jit/liveness.h"
+
 namespace axiom::jit {
 
 using namespace axiom::arm64;
 
 void Arm64NaiveJit::emit_prologue(const ir::IrFunction& func) {
-    size_t raw_bytes = func.reg_types.size() * 4;
+    size_t raw_bytes = static_cast<size_t>(alloc_.num_spill_slots) * 4;
     frame_size_      = static_cast<uint16_t>((raw_bytes + 15) & ~size_t(15));
 
     emit(encode_stp_pre(reg::fp, reg::lr, reg::sp, -16));
     emit(encode_add_imm(reg::fp, reg::sp, 0));
+
+    for (uint8_t r = 19; r <= 27; r += 2) {
+        if ((alloc_.used_registers_mask & (1U << r)) != 0 || (alloc_.used_registers_mask & (1U << (r + 1))) != 0) {
+            emit(encode_stp_pre(XReg{r}, XReg{static_cast<uint8_t>(r + 1)}, reg::sp, -16));
+        }
+    }
 
     if (frame_size_ > 0) {
         emit(encode_sub_imm(reg::sp, reg::sp, frame_size_));
@@ -36,6 +44,12 @@ void Arm64NaiveJit::emit_epilogue() {
         emit(encode_add_imm(reg::sp, reg::sp, frame_size_));
     }
 
+    for (uint8_t r = 27; r >= 19; r -= 2) {
+        if ((alloc_.used_registers_mask & (1U << r)) != 0 || (alloc_.used_registers_mask & (1U << (r + 1))) != 0) {
+            emit(encode_ldp_post(XReg{r}, XReg{static_cast<uint8_t>(r + 1)}, reg::sp, 16));
+        }
+    }
+
     emit(encode_ldp_post(reg::fp, reg::lr, reg::sp, 16));
 
     emit(encode_ret());
@@ -45,15 +59,51 @@ void Arm64NaiveJit::emit_load_operand(WReg dst, const ir::IrOperand& op) {
     if (op.kind == ir::IrOperandKind::Constant) {
         emit(encode_movz(dst, static_cast<uint16_t>(op.constant_int), 0));
     } else {
-        emit(encode_ldr(dst, reg::sp, stack_offset(op.reg)));
+        const auto& loc = alloc_.locations[op.reg];
+        if (loc.kind == StorageKind::Register) {
+            if (loc.index >= 19) {
+                emit(encode_mov(dst, WReg{static_cast<uint8_t>(loc.index)}));
+            }
+        } else {
+            emit(encode_ldr(dst, reg::sp, stack_offset(loc.index)));
+        }
     }
 }
 
 void Arm64NaiveJit::emit_store_reg(WReg src, ir::RegId dst_reg) {
-    emit(encode_str(src, reg::sp, stack_offset(dst_reg)));
+    const auto& loc = alloc_.locations[dst_reg];
+    if (loc.kind == StorageKind::Register) {
+        if (loc.index >= 19 && loc.index != src.id) {
+            emit(encode_mov(WReg{static_cast<uint8_t>(loc.index)}, src));
+        }
+    } else {
+        emit(encode_str(src, reg::sp, stack_offset(loc.index)));
+    }
+}
+
+WReg Arm64NaiveJit::resolve_src(const ir::IrOperand& op, WReg scratch) {
+    if (op.kind != ir::IrOperandKind::Constant) {
+        const auto& loc = alloc_.locations[op.reg];
+        if (loc.kind == StorageKind::Register && loc.index >= 19) {
+            return WReg{static_cast<uint8_t>(loc.index)};
+        }
+    }
+    emit_load_operand(scratch, op);
+    return scratch;
+}
+
+WReg Arm64NaiveJit::resolve_dst(ir::RegId dst_reg, WReg scratch) const noexcept {
+    const auto& loc = alloc_.locations[dst_reg];
+    if (loc.kind == StorageKind::Register && loc.index >= 19) {
+        return WReg{static_cast<uint8_t>(loc.index)};
+    }
+    return scratch;
 }
 
 void Arm64NaiveJit::compile_function(const ir::IrFunction& func) {
+    LivenessResult liveness = compute_liveness(func);
+    alloc_                  = allocate_registers(func, liveness);
+
     emit_prologue(func);
     label_offsets_.assign(func.label_names.size(), 0);
     pending_fixups_.clear();
@@ -62,90 +112,114 @@ void Arm64NaiveJit::compile_function(const ir::IrFunction& func) {
         switch (inst.op) {
             case ir::IrOpcode::Alloca: emit_store_reg(reg::wzr, inst.dest.reg); break;
 
-            case ir::IrOpcode::Assign:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_store_reg(reg::w9, inst.dest.reg);
+            case ir::IrOpcode::Assign: {
+                WReg src = resolve_src(inst.src1, reg::w9);
+                emit_store_reg(src, inst.dest.reg);
                 break;
+            }
 
-            case ir::IrOpcode::Add:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_load_operand(reg::w10, inst.src2);
-                emit(encode_add(reg::w8, reg::w9, reg::w10));
-                emit_store_reg(reg::w8, inst.dest.reg);
+            case ir::IrOpcode::Add: {
+                WReg s1  = resolve_src(inst.src1, reg::w9);
+                WReg s2  = resolve_src(inst.src2, reg::w10);
+                WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+                emit(encode_add(dst, s1, s2));
+                emit_store_reg(dst, inst.dest.reg);
                 break;
+            }
 
-            case ir::IrOpcode::Sub:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_load_operand(reg::w10, inst.src2);
-                emit(encode_sub(reg::w8, reg::w9, reg::w10));
-                emit_store_reg(reg::w8, inst.dest.reg);
+            case ir::IrOpcode::Sub: {
+                WReg s1  = resolve_src(inst.src1, reg::w9);
+                WReg s2  = resolve_src(inst.src2, reg::w10);
+                WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+                emit(encode_sub(dst, s1, s2));
+                emit_store_reg(dst, inst.dest.reg);
                 break;
+            }
 
-            case ir::IrOpcode::Mul:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_load_operand(reg::w10, inst.src2);
-                emit(encode_mul(reg::w8, reg::w9, reg::w10));
-                emit_store_reg(reg::w8, inst.dest.reg);
+            case ir::IrOpcode::Mul: {
+                WReg s1  = resolve_src(inst.src1, reg::w9);
+                WReg s2  = resolve_src(inst.src2, reg::w10);
+                WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+                emit(encode_mul(dst, s1, s2));
+                emit_store_reg(dst, inst.dest.reg);
                 break;
+            }
 
-            case ir::IrOpcode::Div:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_load_operand(reg::w10, inst.src2);
-                emit(encode_sdiv(reg::w8, reg::w9, reg::w10));
-                emit_store_reg(reg::w8, inst.dest.reg);
+            case ir::IrOpcode::Div: {
+                WReg s1  = resolve_src(inst.src1, reg::w9);
+                WReg s2  = resolve_src(inst.src2, reg::w10);
+                WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+                emit(encode_sdiv(dst, s1, s2));
+                emit_store_reg(dst, inst.dest.reg);
                 break;
+            }
 
-            case ir::IrOpcode::CmpEq:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_load_operand(reg::w10, inst.src2);
-                emit(encode_cmp(reg::w9, reg::w10));
-                emit(encode_cset(reg::w8, Cond::EQ));
-                emit_store_reg(reg::w8, inst.dest.reg);
+            case ir::IrOpcode::CmpEq: {
+                WReg s1  = resolve_src(inst.src1, reg::w9);
+                WReg s2  = resolve_src(inst.src2, reg::w10);
+                WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+                emit(encode_cmp(s1, s2));
+                emit(encode_cset(dst, Cond::EQ));
+                emit_store_reg(dst, inst.dest.reg);
                 break;
+            }
 
-            case ir::IrOpcode::CmpNe:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_load_operand(reg::w10, inst.src2);
-                emit(encode_cmp(reg::w9, reg::w10));
-                emit(encode_cset(reg::w8, Cond::NE));
-                emit_store_reg(reg::w8, inst.dest.reg);
+            case ir::IrOpcode::CmpNe: {
+                WReg s1  = resolve_src(inst.src1, reg::w9);
+                WReg s2  = resolve_src(inst.src2, reg::w10);
+                WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+                emit(encode_cmp(s1, s2));
+                emit(encode_cset(dst, Cond::NE));
+                emit_store_reg(dst, inst.dest.reg);
                 break;
+            }
 
-            case ir::IrOpcode::CmpLt:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_load_operand(reg::w10, inst.src2);
-                emit(encode_cmp(reg::w9, reg::w10));
-                emit(encode_cset(reg::w8, Cond::LT));
-                emit_store_reg(reg::w8, inst.dest.reg);
+            case ir::IrOpcode::CmpLt: {
+                WReg s1  = resolve_src(inst.src1, reg::w9);
+                WReg s2  = resolve_src(inst.src2, reg::w10);
+                WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+                emit(encode_cmp(s1, s2));
+                emit(encode_cset(dst, Cond::LT));
+                emit_store_reg(dst, inst.dest.reg);
                 break;
+            }
 
-            case ir::IrOpcode::CmpLe:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_load_operand(reg::w10, inst.src2);
-                emit(encode_cmp(reg::w9, reg::w10));
-                emit(encode_cset(reg::w8, Cond::LE));
-                emit_store_reg(reg::w8, inst.dest.reg);
+            case ir::IrOpcode::CmpLe: {
+                WReg s1  = resolve_src(inst.src1, reg::w9);
+                WReg s2  = resolve_src(inst.src2, reg::w10);
+                WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+                emit(encode_cmp(s1, s2));
+                emit(encode_cset(dst, Cond::LE));
+                emit_store_reg(dst, inst.dest.reg);
                 break;
+            }
 
-            case ir::IrOpcode::CmpGt:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_load_operand(reg::w10, inst.src2);
-                emit(encode_cmp(reg::w9, reg::w10));
-                emit(encode_cset(reg::w8, Cond::GT));
-                emit_store_reg(reg::w8, inst.dest.reg);
+            case ir::IrOpcode::CmpGt: {
+                WReg s1  = resolve_src(inst.src1, reg::w9);
+                WReg s2  = resolve_src(inst.src2, reg::w10);
+                WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+                emit(encode_cmp(s1, s2));
+                emit(encode_cset(dst, Cond::GT));
+                emit_store_reg(dst, inst.dest.reg);
                 break;
+            }
 
-            case ir::IrOpcode::CmpGe:
-                emit_load_operand(reg::w9, inst.src1);
-                emit_load_operand(reg::w10, inst.src2);
-                emit(encode_cmp(reg::w9, reg::w10));
-                emit(encode_cset(reg::w8, Cond::GE));
-                emit_store_reg(reg::w8, inst.dest.reg);
+            case ir::IrOpcode::CmpGe: {
+                WReg s1  = resolve_src(inst.src1, reg::w9);
+                WReg s2  = resolve_src(inst.src2, reg::w10);
+                WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+                emit(encode_cmp(s1, s2));
+                emit(encode_cset(dst, Cond::GE));
+                emit_store_reg(dst, inst.dest.reg);
                 break;
+            }
 
             case ir::IrOpcode::Return:
                 if (inst.src1.kind != ir::IrOperandKind::None) {
-                    emit_load_operand(reg::w0, inst.src1);
+                    WReg ret_val = resolve_src(inst.src1, reg::w0);
+                    if (ret_val.id != reg::w0.id) {
+                        emit(encode_mov(reg::w0, ret_val));
+                    }
                 }
                 emit_epilogue();
                 break;
@@ -167,15 +241,15 @@ void Arm64NaiveJit::compile_function(const ir::IrFunction& func) {
             }
 
             case ir::IrOpcode::BranchIfFalse: {
-                emit_load_operand(reg::w9, inst.src1);
+                WReg cond = resolve_src(inst.src1, reg::w9);
                 size_t branch_idx = code_.size();
                 pending_fixups_.push_back({
                     .inst_index     = branch_idx,
                     .target_label   = inst.label,
                     .is_conditional = true,
-                    .cond_reg       = reg::w9,
+                    .cond_reg       = cond,
                 });
-                emit(encode_cbz(reg::w9, 0));
+                emit(encode_cbz(cond, 0));
                 break;
             }
 
@@ -184,7 +258,10 @@ void Arm64NaiveJit::compile_function(const ir::IrFunction& func) {
                 uint32_t count = (inst.arg_count <= 8) ? inst.arg_count : 8;
                 for (uint32_t i = 0; i < count; ++i) {
                     WReg arg_reg{static_cast<uint8_t>(i)};
-                    emit_load_operand(arg_reg, func.call_args[inst.arg_start + i]);
+                    WReg src = resolve_src(func.call_args[inst.arg_start + i], arg_reg);
+                    if (src.id != arg_reg.id) {
+                        emit(encode_mov(arg_reg, src));
+                    }
                 }
 
                 // 2. bl 命令のバックパッチ予約と仮命令 emit
