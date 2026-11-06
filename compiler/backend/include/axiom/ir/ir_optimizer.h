@@ -9,15 +9,16 @@
 #pragma once
 
 #include <cstdint>
+
 #include "axiom/ir/ir.h"
 
 namespace axiom::ir {
 
 struct OptimizerOptions {
-    bool constant_folding { true };
-    bool copy_propagation { false };       // M3 で有効化
-    bool dead_code_elimination { false };   // M4 で有効化
-    uint32_t max_iterations { 10 };        // 固定点ループの最大周回数
+    bool     constant_folding{true};
+    bool     copy_propagation{true};        // M3: 定数・コピー伝播
+    bool     dead_code_elimination{false};  // M4 で有効化
+    uint32_t max_iterations{10};            // 固定点ループの最大周回数
 };
 
 class IrOptimizer {
@@ -33,10 +34,12 @@ public:
     /// 命令が1つでも変更されたら true を返す
     static bool run_constant_folding(IrFunction& func);
 
+    /// 【Milestone 3】定数伝播 & コピー伝播パス
+    /// 命令のオペランドが1つでも置換されたら true を返す
+    static bool run_copy_propagation(IrFunction& func);
+
     /// 【Milestone 1】Nop 命令を消去して命令列を詰める（線形走査）
     static void eliminate_nops(IrFunction& func);
-
 };
 
-} // namespace axiom::ir
-
+}  // namespace axiom::ir

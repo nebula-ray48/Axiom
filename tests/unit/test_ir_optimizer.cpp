@@ -267,4 +267,76 @@ TEST(IrOptimizerTest, AlgebraicSimplification) {
     EXPECT_EQ(res.value, 42);
 }
 
+TEST(IrOptimizerTest, CopyAndConstantPropagationBasic) {
+    IrFunction func;
+    auto a = func.allocate_reg(IrType::I32);
+    auto b = func.allocate_reg(IrType::I32);
+    auto c = func.allocate_reg(IrType::I32);
+
+    // a = 10
+    func.instructions.push_back({ .op = IrOpcode::Assign, .dest = IrOperand::MakeVar(a, IrType::I32), .src1 = IrOperand::MakeConst(10, IrType::I32) });
+    // b = a  (定数伝播で b = 10 になる)
+    func.instructions.push_back({ .op = IrOpcode::Assign, .dest = IrOperand::MakeVar(b, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32) });
+    // c = b + 20 (伝播で 10 + 20 になり、定数畳み込みで c = 30 になる)
+    func.instructions.push_back({ .op = IrOpcode::Add, .dest = IrOperand::MakeTemp(c, IrType::I32), .src1 = IrOperand::MakeVar(b, IrType::I32), .src2 = IrOperand::MakeConst(20, IrType::I32) });
+    // return c (伝播で return 30 になる)
+    func.instructions.push_back({ .op = IrOpcode::Return, .src1 = IrOperand::MakeTemp(c, IrType::I32) });
+
+    bool prop_changed = IrOptimizer::run_copy_propagation(func);
+    if (prop_changed) {
+        // 1回目の伝播で b = 10, c = 10 + 20 になっているはず
+        EXPECT_EQ(func.instructions[1].src1.kind, IrOperandKind::Constant);
+        EXPECT_EQ(func.instructions[1].src1.constant_int, 10);
+        EXPECT_EQ(func.instructions[2].src1.kind, IrOperandKind::Constant);
+        EXPECT_EQ(func.instructions[2].src1.constant_int, 10);
+
+        // パイプライン全体（optimize_function）を回すと c = 30, return 30 まで畳み込まれる
+        IrOptimizer::optimize_function(func);
+        EXPECT_EQ(func.instructions[2].op, IrOpcode::Assign);
+        EXPECT_EQ(func.instructions[2].src1.constant_int, 30);
+        EXPECT_EQ(func.instructions[3].src1.kind, IrOperandKind::Constant);
+        EXPECT_EQ(func.instructions[3].src1.constant_int, 30);
+
+        IrVm vm;
+        auto res = vm.execute(func);
+        EXPECT_EQ(res.value, 30);
+    }
+}
+
+TEST(IrOptimizerTest, CopyPropagationInvalidationOnOverwriteAndLabel) {
+    IrFunction func;
+    auto a  = func.allocate_reg(IrType::I32);
+    auto r0 = func.allocate_reg(IrType::I32);
+    auto r1 = func.allocate_reg(IrType::I32);
+    auto r2 = func.allocate_reg(IrType::I32);
+    auto l0 = func.allocate_label();
+
+    // [0] a = 10
+    func.instructions.push_back({ .op = IrOpcode::Assign, .dest = IrOperand::MakeVar(a, IrType::I32), .src1 = IrOperand::MakeConst(10, IrType::I32) });
+    // [1] r0 = a + 1  -> 10 + 1 に伝播される
+    func.instructions.push_back({ .op = IrOpcode::Add, .dest = IrOperand::MakeTemp(r0, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeConst(1, IrType::I32) });
+    // [2] a = 50      -> a が上書きされたので古い値(10)は破棄され、50になる
+    func.instructions.push_back({ .op = IrOpcode::Assign, .dest = IrOperand::MakeVar(a, IrType::I32), .src1 = IrOperand::MakeConst(50, IrType::I32) });
+    // [3] r1 = a + 1  -> 50 + 1 に伝播される
+    func.instructions.push_back({ .op = IrOpcode::Add, .dest = IrOperand::MakeTemp(r1, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeConst(1, IrType::I32) });
+    // [4] label L0    -> 合流点なので追跡テーブルが全リセットされる
+    func.instructions.push_back({ .op = IrOpcode::Label, .label = l0 });
+    // [5] r2 = a + 1  -> ラベル越えなので a は定数に置換されないまま残る
+    func.instructions.push_back({ .op = IrOpcode::Add, .dest = IrOperand::MakeTemp(r2, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeConst(1, IrType::I32) });
+
+    bool changed = IrOptimizer::run_copy_propagation(func);
+    if (changed) {
+        EXPECT_EQ(func.instructions[1].src1.kind, IrOperandKind::Constant);
+        EXPECT_EQ(func.instructions[1].src1.constant_int, 10);
+
+        EXPECT_EQ(func.instructions[3].src1.kind, IrOperandKind::Constant);
+        EXPECT_EQ(func.instructions[3].src1.constant_int, 50);
+
+        // ラベル直後の命令では a は Variable のまま維持されていること
+        EXPECT_EQ(func.instructions[5].src1.kind, IrOperandKind::Variable);
+        EXPECT_EQ(func.instructions[5].src1.reg, a);
+    }
+}
+
+
 
