@@ -18,8 +18,7 @@ namespace {
 [[nodiscard]] bool try_replace_operand(axiom::ir::IrOperand&                    op,
                                        const std::vector<axiom::ir::IrOperand>& known_values) noexcept {
     using namespace axiom::ir;
-    if ((op.kind == IrOperandKind::Variable || op.kind == IrOperandKind::Temporary) &&
-        op.reg < known_values.size()) {
+    if ((op.kind == IrOperandKind::Variable || op.kind == IrOperandKind::Temporary) && op.reg < known_values.size()) {
         const IrOperand& replacement = known_values[op.reg];
         if (replacement.kind != IrOperandKind::None) {
             op = replacement;
@@ -30,15 +29,13 @@ namespace {
 }
 
 /// 指定したレジスタが書き換えられた際、そのレジスタ自身およびそのレジスタを参照していた追跡情報を無効化する
-void invalidate_reg(axiom::ir::RegId                   target_reg,
-                    std::vector<axiom::ir::IrOperand>& known_values) noexcept {
+void invalidate_reg(axiom::ir::RegId target_reg, std::vector<axiom::ir::IrOperand>& known_values) noexcept {
     using namespace axiom::ir;
     if (target_reg < known_values.size()) {
         known_values[target_reg] = IrOperand::MakeNone();
     }
     for (size_t i = 0; i < known_values.size(); ++i) {
-        if ((known_values[i].kind == IrOperandKind::Variable ||
-             known_values[i].kind == IrOperandKind::Temporary) &&
+        if ((known_values[i].kind == IrOperandKind::Variable || known_values[i].kind == IrOperandKind::Temporary) &&
             known_values[i].reg == target_reg) {
             known_values[i] = IrOperand::MakeNone();
         }
@@ -50,6 +47,52 @@ void clear_all_values(std::vector<axiom::ir::IrOperand>& known_values) noexcept 
     for (size_t i = 0; i < known_values.size(); ++i) {
         known_values[i] = axiom::ir::IrOperand::MakeNone();
     }
+}
+
+/// オペランドがレジスタ（Variable / Temporary）であれば、使用済みフラグ（is_used[reg] = 1）を立てる
+void mark_used(const axiom::ir::IrOperand& op, std::vector<uint8_t>& is_used) noexcept {
+    using namespace axiom::ir;
+    if ((op.kind == IrOperandKind::Variable || op.kind == IrOperandKind::Temporary) && op.reg < is_used.size()) {
+        is_used[op.reg] = 1;
+    }
+}
+
+/// 結果（dest）が誰にも読まれていない場合に、安全に削除（Nop化）してよい命令かを判定する
+/// （副作用のある Call や分岐命令、ゼロ除算トラップの可能性がある Div は消さない）
+[[nodiscard]] bool can_eliminate_if_unused(const axiom::ir::IrInstruction& inst) noexcept {
+    using namespace axiom::ir;
+    switch (inst.op) {
+        case IrOpcode::Alloca:
+        case IrOpcode::Assign:
+        case IrOpcode::Add:
+        case IrOpcode::Sub:
+        case IrOpcode::Mul:
+        case IrOpcode::CmpEq:
+        case IrOpcode::CmpNe:
+        case IrOpcode::CmpLt:
+        case IrOpcode::CmpLe:
+        case IrOpcode::CmpGt:
+        case IrOpcode::CmpGe: return true;
+        case IrOpcode::Div:
+            // 除数が非ゼロ定数かつ INT32_MIN / -1 でない場合のみトラップしないので削除可能
+            if (inst.src2.kind == IrOperandKind::Constant && inst.src2.constant_int != 0) {
+                if (inst.src1.kind == IrOperandKind::Constant &&
+                    static_cast<int32_t>(inst.src1.constant_int) == std::numeric_limits<int32_t>::min() &&
+                    static_cast<int32_t>(inst.src2.constant_int) == -1) {
+                    return false;
+                }
+                if (static_cast<int32_t>(inst.src2.constant_int) != -1) {
+                    return true;
+                }
+            }
+            return false;
+        default: return false;
+    }
+}
+
+/// 命令を Nop に書き換えて無効化する
+void mark_as_nop(axiom::ir::IrInstruction& inst) noexcept {
+    inst = axiom::ir::IrInstruction{.op = axiom::ir::IrOpcode::Nop};
 }
 
 }  // namespace
@@ -81,6 +124,9 @@ bool IrOptimizer::optimize_function(IrFunction& func, const OptimizerOptions& op
         }
         if (options.constant_folding) {
             changed_in_iter |= run_constant_folding(func);
+        }
+        if (options.dead_code_elimination) {
+            changed_in_iter |= run_dead_code_elimination(func);
         }
 
         if (!changed_in_iter) {
@@ -240,8 +286,7 @@ bool IrOptimizer::run_constant_folding(IrFunction& func) {
                 }
                 break;
 
-            default:
-                break;
+            default: break;
         }
     }
 
@@ -267,8 +312,12 @@ bool IrOptimizer::run_copy_propagation(IrFunction& func) {
         }
 
         // 2. 右辺のオペランド（src1, src2, Call引数）を既知の値に置換
-        if (try_replace_operand(inst.src1, known_values)) { changed = true; }
-        if (try_replace_operand(inst.src2, known_values)) { changed = true; }
+        if (try_replace_operand(inst.src1, known_values)) {
+            changed = true;
+        }
+        if (try_replace_operand(inst.src2, known_values)) {
+            changed = true;
+        }
         if (inst.op == IrOpcode::Call) {
             for (uint32_t a = 0; a < inst.arg_count; ++a) {
                 if (try_replace_operand(func.call_args[inst.arg_start + a], known_values)) {
@@ -283,6 +332,45 @@ bool IrOptimizer::run_copy_propagation(IrFunction& func) {
             if (inst.op == IrOpcode::Assign) {
                 if (!(inst.src1.kind == inst.dest.kind && inst.src1.reg == inst.dest.reg)) {
                     known_values[inst.dest.reg] = inst.src1;
+                }
+            }
+        }
+    }
+
+    return changed;
+}
+
+bool IrOptimizer::run_dead_code_elimination(IrFunction& func) {
+    bool                 changed = false;
+    std::vector<uint8_t> is_used(func.reg_types.size(), 0);
+
+    for (size_t i = 0; i < func.instructions.size(); ++i) {
+        const IrInstruction& inst = func.instructions[i];
+        if (inst.op == IrOpcode::Nop) {
+            continue;  // Nop ならスキップ
+        }
+
+        mark_used(inst.src1, is_used);
+        mark_used(inst.src2, is_used);
+
+        if (inst.op == IrOpcode::Call) {
+            for (uint32_t a = 0; a < inst.arg_count; ++a) {
+                mark_used(func.call_args[inst.arg_start + a], is_used);
+            }
+        }
+    }
+
+    for (size_t i = 0; i < func.instructions.size(); ++i) {
+        IrInstruction& inst = func.instructions[i];
+        if (inst.op == IrOpcode::Nop) {
+            continue;  // Nop ならスキップ
+        }
+
+        if (can_eliminate_if_unused(inst)) {
+            if (inst.dest.kind == IrOperandKind::Variable || inst.dest.kind == IrOperandKind::Temporary) {
+                if (is_used[inst.dest.reg] == 0) {
+                    mark_as_nop(inst);
+                    changed = true;
                 }
             }
         }

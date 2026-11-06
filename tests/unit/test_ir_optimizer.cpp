@@ -290,8 +290,8 @@ TEST(IrOptimizerTest, CopyAndConstantPropagationBasic) {
         EXPECT_EQ(func.instructions[2].src1.kind, IrOperandKind::Constant);
         EXPECT_EQ(func.instructions[2].src1.constant_int, 10);
 
-        // パイプライン全体（optimize_function）を回すと c = 30, return 30 まで畳み込まれる
-        IrOptimizer::optimize_function(func);
+        // パイプライン（畳み込み + 伝播）を回すと c = 30, return 30 まで畳み込まれる
+        IrOptimizer::optimize_function(func, OptimizerOptions{.constant_folding = true, .copy_propagation = true, .dead_code_elimination = false});
         EXPECT_EQ(func.instructions[2].op, IrOpcode::Assign);
         EXPECT_EQ(func.instructions[2].src1.constant_int, 30);
         EXPECT_EQ(func.instructions[3].src1.kind, IrOperandKind::Constant);
@@ -337,6 +337,44 @@ TEST(IrOptimizerTest, CopyPropagationInvalidationOnOverwriteAndLabel) {
         EXPECT_EQ(func.instructions[5].src1.reg, a);
     }
 }
+
+TEST(IrOptimizerTest, DeadCodeEliminationUnusedRegistersAndFullPipeline) {
+    IrFunction func;
+    auto a = func.allocate_reg(IrType::I32);
+    auto b = func.allocate_reg(IrType::I32);
+    auto c = func.allocate_reg(IrType::I32);
+    auto dead_reg = func.allocate_reg(IrType::I32);
+
+    // a = 10
+    func.instructions.push_back({ .op = IrOpcode::Assign, .dest = IrOperand::MakeVar(a, IrType::I32), .src1 = IrOperand::MakeConst(10, IrType::I32) });
+    // dead_reg = 999 (最初から誰にも読まれない)
+    func.instructions.push_back({ .op = IrOpcode::Assign, .dest = IrOperand::MakeVar(dead_reg, IrType::I32), .src1 = IrOperand::MakeConst(999, IrType::I32) });
+    // b = a
+    func.instructions.push_back({ .op = IrOpcode::Assign, .dest = IrOperand::MakeVar(b, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32) });
+    // c = b + 20
+    func.instructions.push_back({ .op = IrOpcode::Add, .dest = IrOperand::MakeTemp(c, IrType::I32), .src1 = IrOperand::MakeVar(b, IrType::I32), .src2 = IrOperand::MakeConst(20, IrType::I32) });
+    // return c
+    func.instructions.push_back({ .op = IrOpcode::Return, .src1 = IrOperand::MakeTemp(c, IrType::I32) });
+
+    // まず単体で DCE を呼ぶと dead_reg = 999 が Nop になる
+    bool dce_changed = IrOptimizer::run_dead_code_elimination(func);
+    if (dce_changed) {
+        EXPECT_EQ(func.instructions[1].op, IrOpcode::Nop);
+
+        // パイプライン全体（伝播 -> 畳み込み -> DCE）を実行すると、
+        // a, b, c もすべて不要になって消え、最終的に `return 30` の1命令だけになる！
+        IrOptimizer::optimize_function(func);
+        ASSERT_EQ(func.instructions.size(), 1u);
+        EXPECT_EQ(func.instructions[0].op, IrOpcode::Return);
+        EXPECT_EQ(func.instructions[0].src1.kind, IrOperandKind::Constant);
+        EXPECT_EQ(func.instructions[0].src1.constant_int, 30);
+
+        IrVm vm;
+        auto res = vm.execute(func);
+        EXPECT_EQ(res.value, 30);
+    }
+}
+
 
 
 
