@@ -8,11 +8,50 @@
 
 #include <gtest/gtest.h>
 #include <limits>
+#include <string_view>
+#include <tree_sitter/api.h>
+
+#include "axiom/base/compiler.h"
 #include "axiom/ir/ir.h"
+#include "axiom/ir/ir_builder.h"
 #include "axiom/ir/ir_optimizer.h"
 #include "axiom/ir/ir_vm.h"
 
+#if defined(__aarch64__) || defined(_M_ARM64)
+#include "axiom/jit/arm64_naive_jit.h"
+#include "axiom/jit/jit_arena.h"
+#endif
+
+using namespace axiom;
 using namespace axiom::ir;
+#if defined(__aarch64__) || defined(_M_ARM64)
+using namespace axiom::jit;
+#endif
+
+namespace {
+
+IrModule BuildIrFromSource(std::string_view code, StringInterner& interner) {
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(
+        parser,
+        nullptr,
+        code.data(),
+        static_cast<uint32_t>(code.length())
+    );
+
+    TSNode root_node = ts_tree_root_node(tree);
+    IrBuilder builder(code, interner);
+    IrModule module = builder.build(root_node);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+
+    return module;
+}
+
+}  // namespace
 
 TEST(IrOptimizerTest, EliminateNops) {
     IrFunction func;
@@ -374,6 +413,183 @@ TEST(IrOptimizerTest, DeadCodeEliminationUnusedRegistersAndFullPipeline) {
         EXPECT_EQ(res.value, 30);
     }
 }
+
+#if defined(__aarch64__) || defined(_M_ARM64)
+
+TEST(IrOptimizerTest, JitDifferentialArithmeticOptimizationAndCodeSize) {
+    StringInterner interner;
+    constexpr std::string_view source = R"(
+        fun compute() -> int32 {
+            val a: int32 = 15;
+            val b: int32 = 25;
+            val c: int32 = a + b;
+            val dead: int32 = c * 100;
+            val d: int32 = c * 2;
+            val e: int32 = d + 0;
+            return e;
+        }
+    )";
+
+    IrModule module_unopt = BuildIrFromSource(source, interner);
+    ASSERT_EQ(module_unopt.functions.size(), 1u);
+
+    // 最適化前の JIT コンパイル & 実行
+    std::vector<uint32_t> code_unopt = Arm64NaiveJit::compile(module_unopt.functions[0]);
+    ASSERT_FALSE(code_unopt.empty());
+
+    JitCodeArena arena_unopt;
+    size_t offset_unopt = arena_unopt.emit_function(code_unopt);
+    auto fn_unopt = arena_unopt.get_function<int32_t()>(offset_unopt);
+    ASSERT_NE(fn_unopt, nullptr);
+    int32_t jit_unopt_result = fn_unopt();
+
+    // 最適化前の VM 実行
+    IrVm vm_unopt;
+    auto vm_unopt_result = vm_unopt.execute(module_unopt.functions[0]);
+    EXPECT_EQ(vm_unopt_result.value, 80);
+    EXPECT_EQ(jit_unopt_result, 80);
+
+    // モジュール全体を最適化
+    IrModule module_opt = module_unopt;
+    IrOptimizer::optimize_module(module_opt);
+
+    // 最適化後の IR は `return 80` のみになっていることを確認
+    ASSERT_EQ(module_opt.functions[0].instructions.size(), 1u);
+    EXPECT_EQ(module_opt.functions[0].instructions[0].op, IrOpcode::Return);
+    EXPECT_EQ(module_opt.functions[0].instructions[0].src1.constant_int, 80);
+
+    // 最適化後の JIT コンパイル & 実行
+    std::vector<uint32_t> code_opt = Arm64NaiveJit::compile(module_opt.functions[0]);
+    ASSERT_FALSE(code_opt.empty());
+
+    JitCodeArena arena_opt;
+    size_t offset_opt = arena_opt.emit_function(code_opt);
+    auto fn_opt = arena_opt.get_function<int32_t()>(offset_opt);
+    ASSERT_NE(fn_opt, nullptr);
+    int32_t jit_opt_result = fn_opt();
+
+    // 最適化後の VM 実行
+    IrVm vm_opt;
+    auto vm_opt_result = vm_opt.execute(module_opt.functions[0]);
+    EXPECT_EQ(vm_opt_result.value, 80);
+
+    // 【検証 1】差分テスト：JIT 最適化前後と VM が完全に一致すること
+    EXPECT_EQ(jit_opt_result, jit_unopt_result);
+    EXPECT_EQ(jit_opt_result, vm_opt_result.value);
+
+    // 【検証 2】機械語命令数の削減：最適化後の命令数が大幅に減っていること
+    EXPECT_LT(code_opt.size(), code_unopt.size());
+}
+
+TEST(IrOptimizerTest, JitDifferentialWhileLoopWithAlgebraicSimplification) {
+    StringInterner interner;
+    constexpr std::string_view source = R"(
+        fun loop_accum(n: int32) -> int32 {
+            var sum: int32 = 0;
+            var i: int32 = 0;
+            while i < n {
+                val zero: int32 = 0;
+                val one: int32 = 1;
+                val term: int32 = i * one;
+                sum = sum + term;
+                i = i + (one + zero);
+            }
+            return sum;
+        }
+    )";
+
+    IrModule module_unopt = BuildIrFromSource(source, interner);
+    ASSERT_EQ(module_unopt.functions.size(), 1u);
+
+    std::vector<uint32_t> code_unopt = Arm64NaiveJit::compile(module_unopt.functions[0]);
+    JitCodeArena arena_unopt;
+    size_t off_unopt = arena_unopt.emit_function(code_unopt);
+    auto fn_unopt = arena_unopt.get_function<int32_t(int32_t)>(off_unopt);
+    ASSERT_NE(fn_unopt, nullptr);
+
+    IrModule module_opt = module_unopt;
+    IrOptimizer::optimize_module(module_opt);
+
+    std::vector<uint32_t> code_opt = Arm64NaiveJit::compile(module_opt.functions[0]);
+    JitCodeArena arena_opt;
+    size_t off_opt = arena_opt.emit_function(code_opt);
+    auto fn_opt = arena_opt.get_function<int32_t(int32_t)>(off_opt);
+    ASSERT_NE(fn_opt, nullptr);
+
+    // 複数入力での差分テスト
+    const std::vector<int32_t> test_inputs = { 0, 1, 2, 5, 10, 20 };
+    IrVm vm;
+    for (int32_t n : test_inputs) {
+        int32_t res_unopt = fn_unopt(n);
+        int32_t res_opt   = fn_opt(n);
+        auto vm_res       = vm.execute(module_opt.functions[0], std::vector<int64_t>{ n });
+
+        EXPECT_EQ(res_opt, res_unopt);
+        EXPECT_EQ(res_opt, vm_res.value);
+    }
+
+    // 最適化によってループ内の代数簡約・不要変数が削減され命令数が減っていること
+    EXPECT_LT(code_opt.size(), code_unopt.size());
+}
+
+TEST(IrOptimizerTest, JitDifferentialMultiFunctionFactorial) {
+    StringInterner interner;
+    constexpr std::string_view source = R"(
+        fun fact(n: int32) -> int32 {
+            if n <= 1 {
+                return 1;
+            }
+            val zero: int32 = 0;
+            val one: int32 = 1;
+            val prev: int32 = n - (one + zero);
+            return n * fact(prev);
+        }
+
+        fun main() -> int32 {
+            val five: int32 = 5;
+            val zero: int32 = 0;
+            return fact(five + zero);
+        }
+    )";
+
+    IrModule module_unopt = BuildIrFromSource(source, interner);
+    StringID main_id = interner.Intern("main");
+
+    // 最適化前 JIT
+    auto compiled_unopt = Arm64NaiveJit::compile_module(module_unopt);
+    ASSERT_TRUE(compiled_unopt.func_inst_offsets.contains(main_id));
+    JitCodeArena arena_unopt;
+    size_t base_unopt = arena_unopt.emit_function(compiled_unopt.code);
+    size_t offset_unopt = base_unopt + compiled_unopt.func_inst_offsets.at(main_id) * sizeof(uint32_t);
+    auto fn_unopt = arena_unopt.get_function<int32_t()>(offset_unopt);
+    ASSERT_NE(fn_unopt, nullptr);
+
+    // 最適化後 JIT
+    IrModule module_opt = module_unopt;
+    IrOptimizer::optimize_module(module_opt);
+
+    auto compiled_opt = Arm64NaiveJit::compile_module(module_opt);
+    ASSERT_TRUE(compiled_opt.func_inst_offsets.contains(main_id));
+    JitCodeArena arena_opt;
+    size_t base_opt = arena_opt.emit_function(compiled_opt.code);
+    size_t offset_opt = base_opt + compiled_opt.func_inst_offsets.at(main_id) * sizeof(uint32_t);
+    auto fn_opt = arena_opt.get_function<int32_t()>(offset_opt);
+    ASSERT_NE(fn_opt, nullptr);
+
+    EXPECT_EQ(fn_unopt(), 120);
+    EXPECT_EQ(fn_opt(), 120);
+
+    IrVm vm;
+    auto vm_res = vm.execute(module_opt, main_id);
+    EXPECT_EQ(vm_res.value, 120);
+
+    // 全体命令数が削減されていること
+    EXPECT_LT(compiled_opt.code.size(), compiled_unopt.code.size());
+}
+
+#endif
+
+
 
 
 

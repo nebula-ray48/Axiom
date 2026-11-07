@@ -29,6 +29,7 @@
 
 #include "axiom/base/compiler.h"
 #include "axiom/ir/ir_builder.h"
+#include "axiom/ir/ir_optimizer.h"
 #include "axiom/ir/ir_printer.h"
 #include "axiom/ir/ir_vm.h"
 #include "axiom/jit/arm64_naive_jit.h"
@@ -50,6 +51,7 @@ enum class Command {
 struct CliOptions {
     Command command = Command::Help;
     std::string file_path;
+    bool optimize = false;
 };
 
 CliOptions parse_args(int argc, char* argv[]) {
@@ -57,43 +59,52 @@ CliOptions parse_args(int argc, char* argv[]) {
         return CliOptions{ .command = Command::Help };
     }
 
-    std::string_view cmd = argv[1];
-    if (cmd == "help" || cmd == "--help" || cmd == "-h") {
-        return CliOptions{ .command = Command::Help };
+    CliOptions opts;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string_view arg = argv[i];
+        if (arg == "help" || arg == "--help" || arg == "-h") {
+            return CliOptions{ .command = Command::Help };
+        } else if (arg == "dump-ir") {
+            opts.command = Command::DumpIr;
+        } else if (arg == "dump-dot") {
+            opts.command = Command::DumpDot;
+        } else if (arg == "vm") {
+            opts.command = Command::Vm;
+        } else if (arg == "run") {
+            opts.command = Command::Run;
+        } else if (arg == "-O" || arg == "-O1" || arg == "--opt" || arg == "--optimize") {
+            opts.optimize = true;
+        } else if (!arg.starts_with('-')) {
+            opts.file_path = arg;
+        } else {
+            std::cerr << "error: unknown option '" << arg << "'\n";
+            return CliOptions{ .command = Command::Help };
+        }
     }
 
-    if (argc < 3) {
+    if (opts.command == Command::Help) {
+        return opts;
+    }
+
+    if (opts.file_path.empty()) {
         std::cerr << "error: no input .ax file specified\n";
         return CliOptions{ .command = Command::Help };
-    }
-
-    CliOptions opts;
-    opts.file_path = argv[2];
-
-    if (cmd == "dump-ir") {
-        opts.command = Command::DumpIr;
-    } else if (cmd == "dump-dot") {
-        opts.command = Command::DumpDot;
-    } else if (cmd == "vm") {
-        opts.command = Command::Vm;
-    } else if (cmd == "run") {
-        opts.command = Command::Run;
-    } else {
-        std::cerr << "error: unknown command '" << cmd << "'\n";
-        opts.command = Command::Help;
     }
 
     return opts;
 }
 
 void print_usage(const char* prog_name) {
-    std::cout << "Usage: " << prog_name << " <command> <file.ax>\n\n"
+    std::cout << "Usage: " << prog_name << " <command> [options] <file.ax>\n\n"
               << "Commands:\n"
               << "  dump-ir   Dump intermediate representation (IR) in text format\n"
               << "  dump-dot  Dump control flow graph (CFG) in Graphviz DOT format\n"
               << "  vm        Execute using reference IR VM\n"
               << "  run       Execute natively using ARM64 JIT\n"
-              << "  help      Show this help message\n";
+              << "  help      Show this help message\n\n"
+              << "Options:\n"
+              << "  -O, --opt Enable IR optimizations (folding, propagation, DCE)\n";
 }
 
 std::optional<std::string> read_file(const std::string& path) {
@@ -137,6 +148,10 @@ int main(int argc, char* argv[]) {
 
     ts_tree_delete(tree);
     ts_parser_delete(parser);
+
+    if (opts.optimize) {
+        axiom::ir::IrOptimizer::optimize_module(module);
+    }
 
     switch (opts.command) {
         case axiom::Command::DumpIr:
