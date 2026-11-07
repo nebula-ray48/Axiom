@@ -51,6 +51,9 @@ IrVm::VmResult IrVm::execute(const IrFunction&        func,
         const auto& inst = func.instructions[pc];
 
         switch (inst.op) {
+            case IrOpcode::Nop:
+                break;
+
             case IrOpcode::Alloca:
                 if (inst.dest.reg < registers.size()) {
                     registers[inst.dest.reg] = 0;

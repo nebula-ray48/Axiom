@@ -110,6 +110,7 @@ void Arm64NaiveJit::compile_function(const ir::IrFunction& func) {
 
     for (const auto& inst : func.instructions) {
         switch (inst.op) {
+            case ir::IrOpcode::Nop: break;
             case ir::IrOpcode::Alloca: emit_store_reg(reg::wzr, inst.dest.reg); break;
 
             case ir::IrOpcode::Assign: {

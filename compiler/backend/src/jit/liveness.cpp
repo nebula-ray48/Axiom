@@ -37,6 +37,9 @@ LivenessResult compute_liveness(const ir::IrFunction& func) {
 
     for (uint32_t i = 0; i < func.instructions.size(); ++i) {
         const auto& inst = func.instructions[i];
+        if (inst.op == ir::IrOpcode::Nop) {
+            continue;
+        }
         record_use(inst.dest, i);
         record_use(inst.src1, i);
         record_use(inst.src2, i);

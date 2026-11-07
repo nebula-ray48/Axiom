@@ -39,6 +39,7 @@ namespace axiom::ir {
 /// IrOpcode をニーモニック文字列 ("alloca", "add" 等) に変換する
 [[nodiscard]] constexpr std::string_view format_ir_opcode(IrOpcode op) noexcept {
     switch (op) {
+        case IrOpcode::Nop:    return "nop";
         case IrOpcode::Alloca: return "alloca";
         case IrOpcode::Assign: return "assign";
         case IrOpcode::Add:    return "add";

@@ -25,6 +25,7 @@ constexpr LabelId kInvalidLabelId = std::numeric_limits<LabelId>::max();
 
 /// 命令の種類（1バイトの識別子）
 enum class IrOpcode : uint8_t {
+    Nop,    // 何もしない命令（最適化で無効化された命令）
     Alloca, // 変数の枠を確保
     Assign, // 代入: dest = src1
     Add,    // 加算: dest = src1 + src2

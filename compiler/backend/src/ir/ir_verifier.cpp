@@ -94,6 +94,11 @@ std::vector<Diagnostic> verify_function(const IrFunction& func, const StringInte
     for (size_t i = 0; i < func.instructions.size(); ++i) {
         const auto& inst = func.instructions[i];
 
+        if (inst.op == IrOpcode::Nop) {
+            // Nop requires no operands or labels
+            continue;
+        }
+
         if (inst.op == IrOpcode::Alloca) {
             if (inst.dest.kind != IrOperandKind::Variable) {
                 report_error(
