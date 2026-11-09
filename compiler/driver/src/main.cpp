@@ -151,13 +151,21 @@ bool write_file(const std::string& path, std::string_view content) {
 
 bool assemble_with_clang(std::string_view asm_code, std::string_view output_bin) {
     std::string cmd = std::format("clang -x assembler - -o {}", output_bin);
+#if defined(_WIN32)
+    FILE* pipe = _popen(cmd.c_str(), "wb");
+#else
     FILE* pipe = popen(cmd.c_str(), "w");
+#endif
     if (!pipe) {
         std::cerr << "error: failed to launch clang\n";
         return false;
     }
     fwrite(asm_code.data(), 1, asm_code.size(), pipe);
+#if defined(_WIN32)
+    int status = _pclose(pipe);
+#else
     int status = pclose(pipe);
+#endif
     if (status != 0) {
         std::cerr << "error: clang assembler/linker failed with status " << status << "\n";
         return false;

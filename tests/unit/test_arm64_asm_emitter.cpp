@@ -44,7 +44,7 @@ using namespace axiom::jit;
 namespace {
 
 bool ValidateAsmWithClang(const std::string& asm_code) {
-#if defined(__APPLE__) || defined(__linux__)
+#if (defined(__aarch64__) || defined(_M_ARM64)) && (defined(__APPLE__) || defined(__linux__))
     // clang -x assembler -c -o /dev/null -
     FILE* pipe = popen("clang -x assembler -c -o /dev/null - 2>/dev/null", "w");
     if (!pipe) {
