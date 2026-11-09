@@ -12,6 +12,7 @@ file(GLOB_RECURSE AXIOM_BACKEND_SOURCES CONFIGURE_DEPENDS
 add_library(axiom-backend STATIC
     ${AXIOM_BACKEND_HEADERS}
     ${AXIOM_BACKEND_SOURCES}
+        src/codegen/arm64_asm_emitter.cpp
 )
 
 target_include_directories(axiom-backend PUBLIC
