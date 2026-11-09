@@ -16,10 +16,6 @@
 
 ---
 
-## [日本語版 (Japanese Version)](README.JP.md)
-
----
-
 ## What is Axiom?
 
 **Axiom** is a high-performance systems programming language designed from the ground up for **Data-Oriented Design (DOD)** and game engine architectures. 
