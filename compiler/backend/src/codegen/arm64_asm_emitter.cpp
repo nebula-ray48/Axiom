@@ -32,6 +32,10 @@ std::string Arm64AsmEmitter::format_symbol(std::string_view raw_name) const {
     return std::string(raw_name);
 }
 
+std::string Arm64AsmEmitter::format_local_label(ir::LabelId label) const {
+    return std::format(".L_{}_{}", current_func_name_, label);
+}
+
 void Arm64AsmEmitter::emit_line(std::string& out, std::string_view line) {
     out.append("    ");
     out.append(line);
@@ -211,7 +215,6 @@ void Arm64AsmEmitter::emit_instruction(const ir::IrFunction& func, const ir::IrI
         case ir::IrOpcode::Nop:
             break;
 
-        // --- Milestone 2-A: 代入・四則演算 (開発者が実装) ---
         case ir::IrOpcode::Alloca:
             emit_store_reg(reg::wzr, inst.dest.reg, out);
             break;
@@ -258,7 +261,6 @@ void Arm64AsmEmitter::emit_instruction(const ir::IrFunction& func, const ir::IrI
             break;
         }
 
-        // --- Milestone 2-B: 比較演算 (開発者が実装) ---
         case ir::IrOpcode::CmpEq: {
             WReg s1  = resolve_src(inst.src1, reg::w9, out);
             WReg s2  = resolve_src(inst.src2, reg::w10, out);
@@ -329,8 +331,41 @@ void Arm64AsmEmitter::emit_instruction(const ir::IrFunction& func, const ir::IrI
             emit_epilogue(out);
             break;
 
+        case ir::IrOpcode::Label:
+            emit_label(out, std::format("{}:", format_local_label(inst.label)));
+            break;
+
+        case ir::IrOpcode::Jump:
+            emit_line(out, std::format("b {}", format_local_label(inst.label)));
+            break;
+
+        case ir::IrOpcode::BranchIfFalse: {
+            WReg cond = resolve_src(inst.src1, reg::w9, out);
+            emit_line(out, std::format("cbz w{}, {}", cond.id, format_local_label(inst.label)));
+            break;
+        }
+
+        // --- Milestone 3-B: 関数呼び出し (開発者が実装) ---
+        case ir::IrOpcode::Call: {
+            uint32_t count = (inst.arg_count <= 8) ? inst.arg_count : 8;
+            for (uint32_t i = 0; i < count; ++i) {
+                WReg arg_reg{static_cast<uint8_t>(i)};
+                WReg src = resolve_src(func.call_args[inst.arg_start + i], arg_reg, out);
+                if (src.id != arg_reg.id) {
+                    emit_line(out, std::format("mov w{}, w{}", arg_reg.id, src.id));
+                }
+            }
+
+            std::string target_sym = format_symbol(interner_.GetString(inst.call_func_name));
+            emit_line(out, std::format("bl {}", target_sym));
+
+            if (inst.dest.kind != ir::IrOperandKind::None) {
+                emit_store_reg(reg::w0, inst.dest.reg, out);
+            }
+            break;
+        }
+
         default:
-            // 他の命令は Milestone 3 で実装
             break;
     }
 }

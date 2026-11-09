@@ -58,6 +58,9 @@ private:
     /// シンボル名（OS差異: macOSは "_" 付加）を整形
     [[nodiscard]] std::string format_symbol(std::string_view raw_name) const;
 
+    /// 関数内ローカルラベル名を整形 (例: ".L_main_0")
+    [[nodiscard]] std::string format_local_label(ir::LabelId label) const;
+
     /// 仮想レジスタのスタックオフセット (reg_id * 4)
     [[nodiscard]] static constexpr uint32_t stack_offset(ir::RegId reg) noexcept { return reg * 4; }
 

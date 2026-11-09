@@ -205,3 +205,91 @@ TEST(Arm64AsmEmitterTest, ComparisonInstructions) {
     EXPECT_TRUE(ValidateAsmWithClang(asm_code));
 }
 
+TEST(Arm64AsmEmitterTest, ControlFlowBranchesAndLabels) {
+    StringInterner interner;
+    IrModule mod;
+    IrFunction func;
+    func.name_id     = interner.Intern("loop_sum");
+    func.return_type = IrType::I32;
+
+    auto i    = func.allocate_reg(IrType::I32);
+    auto cond = func.allocate_reg(IrType::I32);
+    auto l0   = func.allocate_label();
+    auto l1   = func.allocate_label();
+
+    // i = 0
+    func.instructions.push_back({ .op = IrOpcode::Assign, .dest = IrOperand::MakeVar(i, IrType::I32), .src1 = IrOperand::MakeConst(0, IrType::I32) });
+    // label L0:
+    func.instructions.push_back({ .op = IrOpcode::Label, .label = l0 });
+    // cond = (i < 10)
+    func.instructions.push_back({ .op = IrOpcode::CmpLt, .dest = IrOperand::MakeTemp(cond, IrType::I32), .src1 = IrOperand::MakeVar(i, IrType::I32), .src2 = IrOperand::MakeConst(10, IrType::I32) });
+    // branch_if_false cond -> L1
+    func.instructions.push_back({ .op = IrOpcode::BranchIfFalse, .label = l1, .src1 = IrOperand::MakeTemp(cond, IrType::I32) });
+    // i = i + 1
+    func.instructions.push_back({ .op = IrOpcode::Add, .dest = IrOperand::MakeVar(i, IrType::I32), .src1 = IrOperand::MakeVar(i, IrType::I32), .src2 = IrOperand::MakeConst(1, IrType::I32) });
+    // jump L0
+    func.instructions.push_back({ .op = IrOpcode::Jump, .label = l0 });
+    // label L1:
+    func.instructions.push_back({ .op = IrOpcode::Label, .label = l1 });
+    // return i
+    func.instructions.push_back({ .op = IrOpcode::Return, .src1 = IrOperand::MakeVar(i, IrType::I32) });
+
+    mod.functions.push_back(func);
+
+    Arm64AsmEmitter emitter(interner);
+    std::string asm_code = emitter.emit_module(mod);
+
+    EXPECT_NE(asm_code.find(".L_loop_sum_0:"), std::string::npos);
+    EXPECT_NE(asm_code.find(".L_loop_sum_1:"), std::string::npos);
+    EXPECT_NE(asm_code.find("cbz w"), std::string::npos);
+    EXPECT_NE(asm_code.find("b .L_loop_sum_0"), std::string::npos);
+    EXPECT_TRUE(ValidateAsmWithClang(asm_code));
+}
+
+TEST(Arm64AsmEmitterTest, FunctionCallAndArguments) {
+    StringInterner interner;
+    IrModule mod;
+    StringID add_id  = interner.Intern("add_two");
+    StringID main_id = interner.Intern("main");
+
+    // fun add_two(a: int32, b: int32) -> int32 { return a + b; }
+    {
+        IrFunction fn;
+        fn.name_id     = add_id;
+        fn.return_type = IrType::I32;
+        auto a   = fn.allocate_reg(IrType::I32);
+        auto b   = fn.allocate_reg(IrType::I32);
+        auto res = fn.allocate_reg(IrType::I32);
+        fn.parameters.push_back({ .name_id = interner.Intern("a"), .type = IrType::I32, .reg = a });
+        fn.parameters.push_back({ .name_id = interner.Intern("b"), .type = IrType::I32, .reg = b });
+        fn.instructions.push_back({ .op = IrOpcode::Add, .dest = IrOperand::MakeTemp(res, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+        fn.instructions.push_back({ .op = IrOpcode::Return, .src1 = IrOperand::MakeTemp(res, IrType::I32) });
+        mod.functions.push_back(fn);
+    }
+
+    // fun main() -> int32 { return add_two(15, 27); }
+    {
+        IrFunction fn;
+        fn.name_id     = main_id;
+        fn.return_type = IrType::I32;
+        auto ret_reg = fn.allocate_reg(IrType::I32);
+        fn.call_args.push_back(IrOperand::MakeConst(15, IrType::I32));
+        fn.call_args.push_back(IrOperand::MakeConst(27, IrType::I32));
+        fn.instructions.push_back({
+            .op             = IrOpcode::Call,
+            .dest           = IrOperand::MakeTemp(ret_reg, IrType::I32),
+            .call_func_name = add_id,
+            .arg_start      = 0,
+            .arg_count      = 2,
+        });
+        fn.instructions.push_back({ .op = IrOpcode::Return, .src1 = IrOperand::MakeTemp(ret_reg, IrType::I32) });
+        mod.functions.push_back(fn);
+    }
+
+    Arm64AsmEmitter emitter(interner, AsmEmitterOptions{ .target_os = TargetOs::MacOS });
+    std::string asm_code = emitter.emit_module(mod);
+
+    EXPECT_NE(asm_code.find("bl _add_two"), std::string::npos);
+    EXPECT_TRUE(ValidateAsmWithClang(asm_code));
+}
+
