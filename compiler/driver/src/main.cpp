@@ -17,6 +17,9 @@
 //   - エラーが出た場合は stderr に出力して非ゼロで終了
 //   - オプション: --check（型検査のみ）、--emit-ir 等
 
+#include <cstdio>
+#include <filesystem>
+#include <format>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -28,6 +31,7 @@
 #include "tree_sitter/api.h"
 
 #include "axiom/base/compiler.h"
+#include "axiom/codegen/arm64_asm_emitter.h"
 #include "axiom/ir/ir_builder.h"
 #include "axiom/ir/ir_optimizer.h"
 #include "axiom/ir/ir_printer.h"
@@ -45,12 +49,15 @@ enum class Command {
     DumpDot,  // dump-dot
     Vm,       // vm
     Run,      // run (JIT)
+    EmitAsm,  // emit-asm (.s アセンブリ出力)
+    Build,    // build (clang アセンブル＆リンクで実行可能バイナリ生成)
     Help,     // --help または引数不正
 };
 
 struct CliOptions {
     Command command = Command::Help;
     std::string file_path;
+    std::string output_path;
     bool optimize = false;
 };
 
@@ -73,6 +80,17 @@ CliOptions parse_args(int argc, char* argv[]) {
             opts.command = Command::Vm;
         } else if (arg == "run") {
             opts.command = Command::Run;
+        } else if (arg == "emit-asm") {
+            opts.command = Command::EmitAsm;
+        } else if (arg == "build") {
+            opts.command = Command::Build;
+        } else if (arg == "-o" || arg == "--output") {
+            if (i + 1 < argc) {
+                opts.output_path = argv[++i];
+            } else {
+                std::cerr << "error: option '" << arg << "' requires an output path\n";
+                return CliOptions{ .command = Command::Help };
+            }
         } else if (arg == "-O" || arg == "-O1" || arg == "--opt" || arg == "--optimize") {
             opts.optimize = true;
         } else if (!arg.starts_with('-')) {
@@ -102,8 +120,11 @@ void print_usage(const char* prog_name) {
               << "  dump-dot  Dump control flow graph (CFG) in Graphviz DOT format\n"
               << "  vm        Execute using reference IR VM\n"
               << "  run       Execute natively using ARM64 JIT\n"
+              << "  emit-asm  Emit ARM64 assembly (.s)\n"
+              << "  build     Build standalone native executable via system clang\n"
               << "  help      Show this help message\n\n"
               << "Options:\n"
+              << "  -o <path> Specify output file path (.s or binary)\n"
               << "  -O, --opt Enable IR optimizations (folding, propagation, DCE)\n";
 }
 
@@ -116,6 +137,32 @@ std::optional<std::string> read_file(const std::string& path) {
     std::stringstream buffer;
     buffer << file.rdbuf();
     return buffer.str();
+}
+
+bool write_file(const std::string& path, std::string_view content) {
+    std::ofstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "error: cannot open output file '" << path << "'\n";
+        return false;
+    }
+    file << content;
+    return true;
+}
+
+bool assemble_with_clang(std::string_view asm_code, std::string_view output_bin) {
+    std::string cmd = std::format("clang -x assembler - -o {}", output_bin);
+    FILE* pipe = popen(cmd.c_str(), "w");
+    if (!pipe) {
+        std::cerr << "error: failed to launch clang\n";
+        return false;
+    }
+    fwrite(asm_code.data(), 1, asm_code.size(), pipe);
+    int status = pclose(pipe);
+    if (status != 0) {
+        std::cerr << "error: clang assembler/linker failed with status " << status << "\n";
+        return false;
+    }
+    return true;
 }
 
 void parse_test_code();
@@ -188,6 +235,29 @@ int main(int argc, char* argv[]) {
             size_t offset = base + compiled.func_inst_offsets.at(main_id) * sizeof(uint32_t);
             auto fn = arena.get_function<int32_t()>(offset);
             std::cout << fn() << std::endl;
+            break;
+        }
+        
+        case axiom::Command::EmitAsm: {
+            axiom::codegen::Arm64AsmEmitter emitter(interner);
+            std::string asm_code = emitter.emit_module(module);
+            if (opts.output_path.empty()) {
+                std::cout << asm_code;
+            } else if (!axiom::write_file(opts.output_path, asm_code)) {
+                return 1;
+            }
+            break;
+        }
+
+        case axiom::Command::Build: {
+            axiom::codegen::Arm64AsmEmitter emitter(interner);
+            std::string asm_code = emitter.emit_module(module);
+            std::string out_bin = opts.output_path.empty()
+            ? std::filesystem::path(opts.file_path).stem().string()
+            : opts.output_path;
+            if (!axiom::assemble_with_clang(asm_code, out_bin)) {
+                return 1;
+            }
             break;
         }
 
