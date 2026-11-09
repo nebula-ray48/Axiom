@@ -9,15 +9,37 @@
 #include <gtest/gtest.h>
 #include <cstdlib>
 #include <cstdio>
+#include <format>
 #include <string>
+#include <string_view>
+
+#if defined(__APPLE__) || defined(__linux__)
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
+
+#include <tree_sitter/api.h>
 
 #include "axiom/base/compiler.h"
 #include "axiom/codegen/arm64_asm_emitter.h"
 #include "axiom/ir/ir.h"
+#include "axiom/ir/ir_builder.h"
+#include "axiom/ir/ir_optimizer.h"
+#include "axiom/ir/ir_vm.h"
+
+#if defined(__aarch64__) || defined(_M_ARM64)
+#include "axiom/jit/arm64_naive_jit.h"
+#include "axiom/jit/jit_arena.h"
+#endif
+
+extern "C" const TSLanguage* tree_sitter_axiom();
 
 using namespace axiom;
 using namespace axiom::codegen;
 using namespace axiom::ir;
+#if defined(__aarch64__) || defined(_M_ARM64)
+using namespace axiom::jit;
+#endif
 
 namespace {
 
@@ -36,6 +58,89 @@ bool ValidateAsmWithClang(const std::string& asm_code) {
     return true;
 #endif
 }
+
+#if (defined(__aarch64__) || defined(_M_ARM64)) && (defined(__APPLE__) || defined(__linux__))
+
+IrModule BuildIrFromSource(std::string_view code, StringInterner& interner) {
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, code.data(), static_cast<uint32_t>(code.size()));
+    TSNode  root = ts_tree_root_node(tree);
+
+    IrBuilder builder(code, interner);
+    IrModule  module = builder.build(root);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+
+    return module;
+}
+
+int RunAotBinary(const IrModule& module, const StringInterner& interner) {
+    Arm64AsmEmitter emitter(interner);
+    std::string asm_code = emitter.emit_module(module);
+
+    char bin_path[] = "/tmp/axiom_aot_e2e_XXXXXX";
+    int fd = mkstemp(bin_path);
+    if (fd < 0) {
+        return -1;
+    }
+    close(fd);
+
+    std::string cmd = std::format("clang -x assembler - -o {} 2>/dev/null", bin_path);
+    FILE* pipe = popen(cmd.c_str(), "w");
+    if (!pipe) {
+        unlink(bin_path);
+        return -1;
+    }
+    fwrite(asm_code.data(), 1, asm_code.size(), pipe);
+    int build_status = pclose(pipe);
+    if (build_status != 0) {
+        unlink(bin_path);
+        return -1;
+    }
+
+    int run_status = std::system(bin_path);
+    unlink(bin_path);
+    if (run_status == -1 || !WIFEXITED(run_status)) {
+        return -1;
+    }
+    return WEXITSTATUS(run_status);
+}
+
+void VerifyThreeWayDifferential(std::string_view source, int32_t expected_val, bool optimize) {
+    StringInterner interner;
+    IrModule module = BuildIrFromSource(source, interner);
+    if (optimize) {
+        IrOptimizer::optimize_module(module);
+    }
+
+    StringID main_id = interner.Intern("main");
+
+    // 1. Reference IrVm
+    IrVm vm;
+    auto vm_res = vm.execute(module, main_id);
+    ASSERT_TRUE(vm_res.ok());
+    EXPECT_EQ(vm_res.value, expected_val);
+
+    // 2. ARM64 Native JIT
+    auto compiled = Arm64NaiveJit::compile_module(module);
+    ASSERT_TRUE(compiled.func_inst_offsets.contains(main_id));
+    JitCodeArena arena;
+    size_t base = arena.emit_function(compiled.code);
+    size_t offset = base + compiled.func_inst_offsets.at(main_id) * sizeof(uint32_t);
+    auto jit_fn = arena.get_function<int32_t()>(offset);
+    ASSERT_NE(jit_fn, nullptr);
+    int32_t jit_res = jit_fn();
+    EXPECT_EQ(jit_res, expected_val);
+
+    // 3. AOT Standalone Native Executable (.s -> clang -> exec)
+    int aot_exit_code = RunAotBinary(module, interner);
+    EXPECT_EQ(aot_exit_code, expected_val & 0xFF);
+}
+
+#endif
 
 }  // namespace
 
@@ -292,4 +397,92 @@ TEST(Arm64AsmEmitterTest, FunctionCallAndArguments) {
     EXPECT_NE(asm_code.find("bl _add_two"), std::string::npos);
     EXPECT_TRUE(ValidateAsmWithClang(asm_code));
 }
+
+#if (defined(__aarch64__) || defined(_M_ARM64)) && (defined(__APPLE__) || defined(__linux__))
+
+TEST(Arm64AsmEmitterTest, AotDifferentialArithmeticAndComparisons) {
+    constexpr std::string_view source = R"(
+        fun main() -> int32 {
+            val a: int32 = 24;
+            val b: int32 = 6;
+            var res: int32 = (a + b) * 3 - (a / b);
+            if res > 80 {
+                res = res + 11;
+            } else {
+                res = 0;
+            }
+            return res;
+        }
+    )";
+    // (24 + 6) * 3 - 4 = 86; 86 > 80 -> 86 + 11 = 97
+    VerifyThreeWayDifferential(source, 97, false);
+}
+
+TEST(Arm64AsmEmitterTest, AotDifferentialWhileLoopWithBreakContinue) {
+    constexpr std::string_view source = R"(
+        fun main() -> int32 {
+            var i: int32 = 0;
+            var sum: int32 = 0;
+            while i < 20 {
+                i = i + 1;
+                if i == 3 {
+                    continue;
+                }
+                if i > 10 {
+                    break;
+                }
+                sum = sum + i;
+            }
+            return sum;
+        }
+    )";
+    // sum of 1..10 excluding 3: 55 - 3 = 52
+    VerifyThreeWayDifferential(source, 52, false);
+}
+
+TEST(Arm64AsmEmitterTest, AotDifferentialRecursiveFactorialAndFibonacci) {
+    constexpr std::string_view source = R"(
+        fun fact(n: int32) -> int32 {
+            if n <= 1 {
+                return 1;
+            }
+            return n * fact(n - 1);
+        }
+
+        fun fib(n: int32) -> int32 {
+            if n <= 1 {
+                return n;
+            }
+            return fib(n - 1) + fib(n - 2);
+        }
+
+        fun main() -> int32 {
+            return fact(5) + fib(7);
+        }
+    )";
+    // fact(5) = 120, fib(7) = 13 -> 133
+    VerifyThreeWayDifferential(source, 133, false);
+}
+
+TEST(Arm64AsmEmitterTest, AotDifferentialWithIrOptimizerPipeline) {
+    constexpr std::string_view source = R"(
+        fun compute(x: int32) -> int32 {
+            val zero: int32 = 0;
+            val one: int32 = 1;
+            val unused: int32 = x * 99;
+            val folded: int32 = (10 + 20) * 2;
+            return (x * one + zero) + folded;
+        }
+
+        fun main() -> int32 {
+            val base: int32 = 15;
+            return compute(base);
+        }
+    )";
+    // 15 + 60 = 75 (both unoptimized and optimized must match)
+    VerifyThreeWayDifferential(source, 75, false);
+    VerifyThreeWayDifferential(source, 75, true);
+}
+
+#endif
 
