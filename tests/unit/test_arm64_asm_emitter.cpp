@@ -121,3 +121,87 @@ TEST(Arm64AsmEmitterTest, FunctionParametersStoreToStackOrRegister) {
     EXPECT_TRUE(ValidateAsmWithClang(asm_code));
 }
 
+TEST(Arm64AsmEmitterTest, ArithmeticAndAssignInstructions) {
+    StringInterner interner;
+    IrModule mod;
+    IrFunction func;
+    func.name_id     = interner.Intern("calc");
+    func.return_type = IrType::I32;
+
+    auto a  = func.allocate_reg(IrType::I32);
+    auto b  = func.allocate_reg(IrType::I32);
+    auto t0 = func.allocate_reg(IrType::I32);
+    auto t1 = func.allocate_reg(IrType::I32);
+    auto t2 = func.allocate_reg(IrType::I32);
+    auto t3 = func.allocate_reg(IrType::I32);
+
+    // Alloca a; a = 20; b = 5
+    func.instructions.push_back({ .op = IrOpcode::Alloca, .dest = IrOperand::MakeVar(a, IrType::I32) });
+    func.instructions.push_back({ .op = IrOpcode::Assign, .dest = IrOperand::MakeVar(a, IrType::I32), .src1 = IrOperand::MakeConst(20, IrType::I32) });
+    func.instructions.push_back({ .op = IrOpcode::Assign, .dest = IrOperand::MakeVar(b, IrType::I32), .src1 = IrOperand::MakeConst(5, IrType::I32) });
+
+    // t0 = a + b
+    func.instructions.push_back({ .op = IrOpcode::Add, .dest = IrOperand::MakeTemp(t0, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+    // t1 = t0 - b
+    func.instructions.push_back({ .op = IrOpcode::Sub, .dest = IrOperand::MakeTemp(t1, IrType::I32), .src1 = IrOperand::MakeTemp(t0, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+    // t2 = t1 * b
+    func.instructions.push_back({ .op = IrOpcode::Mul, .dest = IrOperand::MakeTemp(t2, IrType::I32), .src1 = IrOperand::MakeTemp(t1, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+    // t3 = t2 / b
+    func.instructions.push_back({ .op = IrOpcode::Div, .dest = IrOperand::MakeTemp(t3, IrType::I32), .src1 = IrOperand::MakeTemp(t2, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+    // return t3
+    func.instructions.push_back({ .op = IrOpcode::Return, .src1 = IrOperand::MakeTemp(t3, IrType::I32) });
+
+    mod.functions.push_back(func);
+
+    Arm64AsmEmitter emitter(interner);
+    std::string asm_code = emitter.emit_module(mod);
+
+    EXPECT_NE(asm_code.find("add w"), std::string::npos);
+    EXPECT_NE(asm_code.find("sub w"), std::string::npos);
+    EXPECT_NE(asm_code.find("mul w"), std::string::npos);
+    EXPECT_NE(asm_code.find("sdiv w"), std::string::npos);
+    EXPECT_TRUE(ValidateAsmWithClang(asm_code));
+}
+
+TEST(Arm64AsmEmitterTest, ComparisonInstructions) {
+    StringInterner interner;
+    IrModule mod;
+    IrFunction func;
+    func.name_id     = interner.Intern("compare_all");
+    func.return_type = IrType::I32;
+
+    auto a  = func.allocate_reg(IrType::I32);
+    auto b  = func.allocate_reg(IrType::I32);
+    auto c0 = func.allocate_reg(IrType::I32);
+    auto c1 = func.allocate_reg(IrType::I32);
+    auto c2 = func.allocate_reg(IrType::I32);
+    auto c3 = func.allocate_reg(IrType::I32);
+    auto c4 = func.allocate_reg(IrType::I32);
+    auto c5 = func.allocate_reg(IrType::I32);
+
+    func.parameters.push_back({ .name_id = interner.Intern("a"), .type = IrType::I32, .reg = a });
+    func.parameters.push_back({ .name_id = interner.Intern("b"), .type = IrType::I32, .reg = b });
+
+    func.instructions.push_back({ .op = IrOpcode::CmpEq, .dest = IrOperand::MakeTemp(c0, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+    func.instructions.push_back({ .op = IrOpcode::CmpNe, .dest = IrOperand::MakeTemp(c1, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+    func.instructions.push_back({ .op = IrOpcode::CmpLt, .dest = IrOperand::MakeTemp(c2, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+    func.instructions.push_back({ .op = IrOpcode::CmpLe, .dest = IrOperand::MakeTemp(c3, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+    func.instructions.push_back({ .op = IrOpcode::CmpGt, .dest = IrOperand::MakeTemp(c4, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+    func.instructions.push_back({ .op = IrOpcode::CmpGe, .dest = IrOperand::MakeTemp(c5, IrType::I32), .src1 = IrOperand::MakeVar(a, IrType::I32), .src2 = IrOperand::MakeVar(b, IrType::I32) });
+    func.instructions.push_back({ .op = IrOpcode::Return, .src1 = IrOperand::MakeTemp(c5, IrType::I32) });
+
+    mod.functions.push_back(func);
+
+    Arm64AsmEmitter emitter(interner);
+    std::string asm_code = emitter.emit_module(mod);
+
+    EXPECT_NE(asm_code.find("cmp w"), std::string::npos);
+    EXPECT_NE(asm_code.find("eq"), std::string::npos);
+    EXPECT_NE(asm_code.find("ne"), std::string::npos);
+    EXPECT_NE(asm_code.find("lt"), std::string::npos);
+    EXPECT_NE(asm_code.find("le"), std::string::npos);
+    EXPECT_NE(asm_code.find("gt"), std::string::npos);
+    EXPECT_NE(asm_code.find("ge"), std::string::npos);
+    EXPECT_TRUE(ValidateAsmWithClang(asm_code));
+}
+

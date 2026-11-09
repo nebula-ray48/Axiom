@@ -135,9 +135,31 @@ void Arm64AsmEmitter::emit_epilogue(std::string& out) {
     emit_line(out, "ret");
 }
 
+namespace {
+
+std::string format_wreg(WReg r) {
+    if (r.id == reg::wzr.id) {
+        return "wzr";
+    }
+    return std::format("w{}", r.id);
+}
+
+}  // namespace
+
 WReg Arm64AsmEmitter::resolve_src(const ir::IrOperand& op, WReg scratch, std::string& out) {
     if (op.kind == ir::IrOperandKind::Constant) {
-        emit_line(out, std::format("mov w{}, #{}", scratch.id, op.constant_int));
+        int32_t val = static_cast<int32_t>(op.constant_int);
+        if (val >= 0 && val <= 65535) {
+            emit_line(out, std::format("mov w{}, #{}", scratch.id, val));
+        } else {
+            uint32_t bits = static_cast<uint32_t>(val);
+            uint16_t lo   = static_cast<uint16_t>(bits & 0xFFFFU);
+            uint16_t hi   = static_cast<uint16_t>((bits >> 16) & 0xFFFFU);
+            emit_line(out, std::format("movz w{}, #{}", scratch.id, lo));
+            if (hi != 0) {
+                emit_line(out, std::format("movk w{}, #{}, lsl #16", scratch.id, hi));
+            }
+        }
         return scratch;
     }
 
@@ -169,13 +191,14 @@ WReg Arm64AsmEmitter::resolve_dst(ir::RegId dst_reg, WReg scratch) const noexcep
 void Arm64AsmEmitter::emit_store_reg(WReg src, ir::RegId dst_reg, std::string& out) {
     if (dst_reg < alloc_.locations.size()) {
         const auto& loc = alloc_.locations[dst_reg];
+        std::string src_name = format_wreg(src);
         if (loc.kind == jit::StorageKind::Register && loc.index >= 19) {
             if (loc.index != src.id) {
-                emit_line(out, std::format("mov w{}, w{}", loc.index, src.id));
+                emit_line(out, std::format("mov w{}, {}", loc.index, src_name));
             }
         } else {
             // スピルスロットへのストア
-            emit_line(out, std::format("str w{}, [sp, #{}]", src.id, stack_offset(loc.index)));
+            emit_line(out, std::format("str {}, [sp, #{}]", src_name, stack_offset(loc.index)));
         }
     }
 }
@@ -188,6 +211,114 @@ void Arm64AsmEmitter::emit_instruction(const ir::IrFunction& func, const ir::IrI
         case ir::IrOpcode::Nop:
             break;
 
+        // --- Milestone 2-A: 代入・四則演算 (開発者が実装) ---
+        case ir::IrOpcode::Alloca:
+            emit_store_reg(reg::wzr, inst.dest.reg, out);
+            break;
+
+        case ir::IrOpcode::Assign: {
+            WReg src = resolve_src(inst.src1, reg::w9, out);
+            emit_store_reg(src, inst.dest.reg, out);
+            break;
+        }
+
+        case ir::IrOpcode::Add: {
+            WReg s1  = resolve_src(inst.src1, reg::w9, out);
+            WReg s2  = resolve_src(inst.src2, reg::w10, out);
+            WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+            emit_line(out, std::format("add w{}, w{}, w{}", dst.id, s1.id, s2.id));
+            emit_store_reg(dst, inst.dest.reg, out);
+            break;
+        }
+
+        case ir::IrOpcode::Sub: {
+            WReg s1  = resolve_src(inst.src1, reg::w9, out);
+            WReg s2  = resolve_src(inst.src2, reg::w10, out);
+            WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+            emit_line(out, std::format("sub w{}, w{}, w{}", dst.id, s1.id, s2.id));
+            emit_store_reg(dst, inst.dest.reg, out);
+            break;
+        }
+
+        case ir::IrOpcode::Mul: {
+            WReg s1  = resolve_src(inst.src1, reg::w9, out);
+            WReg s2  = resolve_src(inst.src2, reg::w10, out);
+            WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+            emit_line(out, std::format("mul w{}, w{}, w{}", dst.id, s1.id, s2.id));
+            emit_store_reg(dst, inst.dest.reg, out);
+            break;
+        }
+
+        case ir::IrOpcode::Div: {
+            WReg s1  = resolve_src(inst.src1, reg::w9, out);
+            WReg s2  = resolve_src(inst.src2, reg::w10, out);
+            WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+            emit_line(out, std::format("sdiv w{}, w{}, w{}", dst.id, s1.id, s2.id));
+            emit_store_reg(dst, inst.dest.reg, out);
+            break;
+        }
+
+        // --- Milestone 2-B: 比較演算 (開発者が実装) ---
+        case ir::IrOpcode::CmpEq: {
+            WReg s1  = resolve_src(inst.src1, reg::w9, out);
+            WReg s2  = resolve_src(inst.src2, reg::w10, out);
+            WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+            emit_line(out, std::format("cmp w{}, w{}", s1.id, s2.id));
+            emit_line(out, std::format("cset w{}, eq", dst.id));
+            emit_store_reg(dst, inst.dest.reg, out);
+            break;
+        }
+
+        case ir::IrOpcode::CmpNe: {
+            WReg s1  = resolve_src(inst.src1, reg::w9, out);
+            WReg s2  = resolve_src(inst.src2, reg::w10, out);
+            WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+            emit_line(out, std::format("cmp w{}, w{}", s1.id, s2.id));
+            emit_line(out, std::format("cset w{}, ne", dst.id));
+            emit_store_reg(dst, inst.dest.reg, out);
+            break;
+        }
+
+        case ir::IrOpcode::CmpLt: {
+            WReg s1  = resolve_src(inst.src1, reg::w9, out);
+            WReg s2  = resolve_src(inst.src2, reg::w10, out);
+            WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+            emit_line(out, std::format("cmp w{}, w{}", s1.id, s2.id));
+            emit_line(out, std::format("cset w{}, lt", dst.id));
+            emit_store_reg(dst, inst.dest.reg, out);
+            break;
+        }
+
+        case ir::IrOpcode::CmpLe: {
+            WReg s1  = resolve_src(inst.src1, reg::w9, out);
+            WReg s2  = resolve_src(inst.src2, reg::w10, out);
+            WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+            emit_line(out, std::format("cmp w{}, w{}", s1.id, s2.id));
+            emit_line(out, std::format("cset w{}, le", dst.id));
+            emit_store_reg(dst, inst.dest.reg, out);
+            break;
+        }
+
+        case ir::IrOpcode::CmpGt: {
+            WReg s1  = resolve_src(inst.src1, reg::w9, out);
+            WReg s2  = resolve_src(inst.src2, reg::w10, out);
+            WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+            emit_line(out, std::format("cmp w{}, w{}", s1.id, s2.id));
+            emit_line(out, std::format("cset w{}, gt", dst.id));
+            emit_store_reg(dst, inst.dest.reg, out);
+            break;
+        }
+
+        case ir::IrOpcode::CmpGe: {
+            WReg s1  = resolve_src(inst.src1, reg::w9, out);
+            WReg s2  = resolve_src(inst.src2, reg::w10, out);
+            WReg dst = resolve_dst(inst.dest.reg, reg::w8);
+            emit_line(out, std::format("cmp w{}, w{}", s1.id, s2.id));
+            emit_line(out, std::format("cset w{}, ge", dst.id));
+            emit_store_reg(dst, inst.dest.reg, out);
+            break;
+        }
+
         case ir::IrOpcode::Return:
             if (inst.src1.kind != ir::IrOperandKind::None) {
                 WReg ret_val = resolve_src(inst.src1, reg::w0, out);
@@ -199,7 +330,7 @@ void Arm64AsmEmitter::emit_instruction(const ir::IrFunction& func, const ir::IrI
             break;
 
         default:
-            // 他の命令は Milestone 2 & 3 で実装
+            // 他の命令は Milestone 3 で実装
             break;
     }
 }
