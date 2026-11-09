@@ -105,10 +105,10 @@ fun calculate_damage(base_attack: int32, defense: int32) -> int32 {
 | **P2** | **Reference VM (`IrVm`)** | Deterministic semantics, 32-bit wrap, trap handling (DivByZero, Overflow) | ✅ Done |
 | **P3** | **ARM64 Machine Encoder** | Full 19 instruction encoders with strongly-typed `WReg` / `XReg` | ✅ Done |
 | **P4** | **JIT Runtime Arena** | 64KB linear arena, $W\oplus X$ protection, cache invalidation, native CPU execution | ✅ Done |
-| **P5** | **Naive JIT Compiler** | Stack-based ARM64 lowering (`Add`, `Sub`, `Mul`, `Div`, branches & loops) | 🔄 **In Progress (50%)** |
-| **P6** | **Register Allocation** | Linear scan allocator (Poletto & Sarkar 1999) on non-SSA IR | ⏳ Planned |
-| **P7** | **IR Optimization Pass** | Constant folding, copy propagation, and dead-code elimination | ⏳ Planned |
-| **P8** | **AOT Assembly Output** | Native `.s` assembly generation for host linkers | ⏳ Planned |
+| **P5** | **Naive JIT Compiler** | Stack-based ARM64 lowering (`Add`, `Sub`, `Mul`, `Div`, branches & loops) | ✅ Done |
+| **P6** | **Register Allocation** | Linear scan allocator (Poletto & Sarkar 1999) on non-SSA IR | ✅ Done |
+| **P7** | **IR Optimization Pass** | Constant folding, copy propagation, and dead-code elimination | ✅ Done |
+| **P8** | **AOT Assembly Output** | Native `.s` assembly generation for host linkers | ✅ Done |
 
 ---
 
