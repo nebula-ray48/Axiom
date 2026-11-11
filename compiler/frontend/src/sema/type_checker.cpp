@@ -45,8 +45,12 @@ TypeChecker::TypeChecker(std::string_view source_code,
 /// func_id から関数名を逆引きしてメッセージのプレフィックスにする。
 /// 例: func_id="update", message="Unknown return type"
 ///     → "update: Unknown return type" として格納される
-void TypeChecker::report_error(StringID func_id, std::string_view message) {
-    axiom::report_error(errors_, func_id, message, &interner_);
+void TypeChecker::report_error(StringID func_id, std::string_view message, SourceLocation location) {
+    axiom::report_error(errors_, func_id, message, &interner_, location);
+}
+
+void TypeChecker::report_error(StringID func_id, std::string_view message, TSNode node) {
+    axiom::report_error(errors_, func_id, message, &interner_, node);
 }
 
 void TypeChecker::register_function_signature(const FunctionInfo& func) {
@@ -213,7 +217,7 @@ void TypeChecker::check_if_statements(StringID func_name, const std::vector<IfIn
         if (stmt.condition_node.id != nullptr && !ts_node_is_null(stmt.condition_node)) {
             StringID type_id = evaluate_expression(stmt.condition_node, func_name);
             if (is_valid(type_id) && type_id != type_registry_.get_bool()) {
-                report_error(func_name, "If condition must be bool");
+                report_error(func_name, "If condition must be bool", stmt.condition_node);
             }
         } else if (is_valid(stmt.condition_id)) {
             StringID type_id = symbol_table_.lookup(stmt.condition_id);
@@ -237,7 +241,7 @@ void TypeChecker::check_while_loops(StringID func_name, const std::vector<WhileI
         if (loop.condition_node.id != nullptr && !ts_node_is_null(loop.condition_node)) {
             StringID type_id = evaluate_expression(loop.condition_node, func_name);
             if (is_valid(type_id) && type_id != type_registry_.get_bool()) {
-                report_error(func_name, "While condition must be bool");
+                report_error(func_name, "While condition must be bool", loop.condition_node);
             }
         } else if (is_valid(loop.condition_id)) {
             StringID type_id = symbol_table_.lookup(loop.condition_id);
@@ -279,7 +283,7 @@ StringID TypeChecker::evaluate_identifier(TSNode node, StringID func_name) {
     StringID var_type_id = symbol_table_.lookup(var_name_id);
 
     if (!is_valid(var_type_id)) {
-        report_error(func_name, "Undefined variable: " + std::string(interner_.GetString(var_name_id)));
+        report_error(func_name, "Undefined variable: " + std::string(interner_.GetString(var_name_id)), node);
         return kInvalidStringID;
     }
     return var_type_id;
@@ -304,7 +308,7 @@ StringID TypeChecker::evaluate_binary(TSNode node, StringID func_name) {
     // 算術演算 (+, -, *, /)
     if (op == "+" || op == "-" || op == "*" || op == "/") {
         if (left_type != right_type) {
-            report_error(func_name, "Type mismatch in arithmetic operation");
+            report_error(func_name, "Type mismatch in arithmetic operation", node);
             return kInvalidStringID;
         }
         return left_type; // 例: int32 + int32 -> int32
@@ -312,7 +316,7 @@ StringID TypeChecker::evaluate_binary(TSNode node, StringID func_name) {
     // 比較演算 (==, !=, <, >, <=, >=)
     else if (op == "==" || op == "!=" || op == "<" || op == ">" || op == "<=" || op == ">=") {
         if (left_type != right_type) {
-            report_error(func_name, "Type mismatch in comparison");
+            report_error(func_name, "Type mismatch in comparison", node);
             return kInvalidStringID;
         }
         return interner_.Intern("bool");
@@ -321,7 +325,7 @@ StringID TypeChecker::evaluate_binary(TSNode node, StringID func_name) {
     else if (op == "and" || op == "or") {
         StringID bool_id = interner_.Intern("bool");
         if (left_type != bool_id || right_type != bool_id) {
-            report_error(func_name, "Operands of 'and' / 'or' must be bool");
+            report_error(func_name, "Operands of 'and' / 'or' must be bool", node);
             return kInvalidStringID;
         }
         return bool_id;
@@ -371,7 +375,7 @@ void TypeChecker::check_assignments(StringID func_name, const std::vector<Assign
 
         StringID right_type = evaluate_expression(assign.right_node, func_name);
         if (is_valid(target_type) && is_valid(right_type) && target_type != right_type) {
-            report_error(func_name, "Type mismatch in assignment");
+            report_error(func_name, "Type mismatch in assignment", assign.right_node);
         }
     }
 }
@@ -386,7 +390,7 @@ void TypeChecker::check_return_statements(StringID                       func_na
 
         if (is_void) {
             if (ret.has_value()) {
-                report_error(func_name, "Cannot return a value from void function");
+                report_error(func_name, "Cannot return a value from void function", ret.value_node);
             }
 
         } else {
@@ -396,7 +400,7 @@ void TypeChecker::check_return_statements(StringID                       func_na
                 // 2. 値があるなら型を計算してチェック
                 StringID actual_type = evaluate_expression(ret.value_node, func_name);
                 if (is_valid(actual_type) && actual_type != expected_return_type) {
-                    report_error(func_name, "Return type mismatch");
+                    report_error(func_name, "Return type mismatch", ret.value_node);
                 }
             }
         }

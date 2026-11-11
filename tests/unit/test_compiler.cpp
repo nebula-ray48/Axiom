@@ -2299,4 +2299,86 @@ TEST(TypeCheckerTest, IfAndWhileArithmeticConditionError) {
     ts_parser_delete(parser);
 }
 
+// 診断表示：指定行の文字列切り出し (get_source_line) の単体テスト
+TEST(DiagnosticTest, GetSourceLine) {
+    std::string_view source = "line 1\nline 2 with carriage return\r\nline 3";
+    EXPECT_EQ(axiom::get_source_line(source, 1), "line 1");
+    EXPECT_EQ(axiom::get_source_line(source, 2), "line 2 with carriage return");
+    EXPECT_EQ(axiom::get_source_line(source, 3), "line 3");
+    EXPECT_EQ(axiom::get_source_line(source, 0), "");
+    EXPECT_EQ(axiom::get_source_line(source, 4), "");
+}
+
+// 診断表示：案 A（3行・ファイル:行:列・ガター・下線）レンダリングの単体テスト
+TEST(DiagnosticTest, RenderDiagnosticWithLocation) {
+    std::string_view source = "fun main() -> void {\n    if n + 1 {\n        return;\n    }\n}";
+    axiom::Diagnostic diag{
+        .function_name_id = 1,
+        .message = "main: If condition must be bool",
+        .location = axiom::SourceLocation{ .line = 2, .column = 8, .length = 5 },
+    };
+
+    std::ostringstream oss;
+    axiom::render_diagnostic(oss, diag, source, "examples/fact.ax", false);
+
+    std::string expected =
+        "examples/fact.ax:2:8: error: main: If condition must be bool\n"
+        "  2 |     if n + 1 {\n"
+        "    |        ^^^^^\n";
+
+    EXPECT_EQ(oss.str(), expected);
+}
+
+// 診断表示：位置情報がない場合の 1 行フォールバック単体テスト
+TEST(DiagnosticTest, RenderDiagnosticFallbackWithoutLocation) {
+    axiom::Diagnostic diag{
+        .function_name_id = 1,
+        .message = "main: Unknown error",
+        .location = axiom::SourceLocation{},
+    };
+
+    std::ostringstream oss;
+    axiom::render_diagnostic(oss, diag, "", "examples/fact.ax", false);
+
+    std::string expected = "examples/fact.ax: error: main: Unknown error\n";
+    EXPECT_EQ(oss.str(), expected);
+}
+
+// TypeChecker: エラー発生時に AST ノードから SourceLocation が正しく捕捉されるかの検証
+TEST(TypeCheckerTest, SourceLocationCapturedInError) {
+    const char* source = R"(
+        fun main() -> void {
+            if 10 + 20 {
+                return;
+            }
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_EQ(errors.size(), 1u);
+    EXPECT_TRUE(errors[0].location.is_valid());
+    // 3行目の "10 + 20" の位置（line = 3）
+    EXPECT_EQ(errors[0].location.line, 3u);
+    EXPECT_GT(errors[0].location.column, 1u);
+    EXPECT_GT(errors[0].location.length, 0u);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
 

@@ -28,9 +28,18 @@
 #include <string_view>
 #include <vector>
 
+#if defined(_WIN32)
+#include <io.h>
+#define IS_TTY(fd) _isatty(_fileno(fd))
+#else
+#include <unistd.h>
+#define IS_TTY(fd) isatty(fileno(fd))
+#endif
+
 #include "tree_sitter/api.h"
 
 #include "axiom/base/compiler.h"
+#include "axiom/base/diagnostic.h"
 #include "axiom/codegen/arm64_asm_emitter.h"
 #include "axiom/ir/ir_builder.h"
 #include "axiom/ir/ir_optimizer.h"
@@ -212,8 +221,9 @@ int main(int argc, char* argv[]) {
     axiom::TypeChecker checker(source, analyzer.get_functions(), type_registry, interner);
 
     if (!checker.check_all()) {
+        bool use_color = IS_TTY(stderr);
         for (const auto& err : checker.get_errors()) {
-            std::cerr << "error: " << err.message << "\n";
+            axiom::render_diagnostic(std::cerr, err, source, opts.file_path, use_color);
         }
         ts_tree_delete(tree);
         ts_parser_delete(parser);
