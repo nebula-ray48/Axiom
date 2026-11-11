@@ -11,7 +11,7 @@ file(GLOB_RECURSE AXIOM_TEST_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cpp
 )
 
-if(EXISTS "${CMAKE_SOURCE_DIR}/compiler/private/tests")
+if(AXIOM_ENABLE_PRIVATE_CORE AND EXISTS "${CMAKE_SOURCE_DIR}/compiler/private/tests")
     file(GLOB_RECURSE AXIOM_PRIVATE_TEST_SOURCES CONFIGURE_DEPENDS
         ${CMAKE_SOURCE_DIR}/compiler/private/tests/*.cpp
     )

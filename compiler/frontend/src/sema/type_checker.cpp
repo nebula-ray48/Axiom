@@ -505,16 +505,21 @@ StringID TypeChecker::evaluate_call(TSNode node, StringID func_name) {
 };
 
 std::optional<uint32_t> TypeChecker::find_component(StringID name_id) const {
-
+#if defined(AXIOM_HAS_PRIVATE_CORE)
     for (uint32_t i = 0; i < comp_registry_.names.size(); ++i) {
         if (comp_registry_.names[i] == name_id) {
             return i;
         }
     }
     return std::nullopt;
+#else
+    (void)name_id;
+    return std::nullopt;
+#endif
 }
 
 StringID TypeChecker::evaluate_member(TSNode node, StringID func_name) {
+#if defined(AXIOM_HAS_PRIVATE_CORE)
     TSNode obj_node = ts_node_child_by_field_name(node, "object", 6);
     TSNode prop_node = ts_node_child_by_field_name(node, "property", 8);
 
@@ -539,6 +544,10 @@ StringID TypeChecker::evaluate_member(TSNode node, StringID func_name) {
 
     report_error(func_name, "Field not found: " + std::string(interner_.GetString(target_prop_id)));
     return kInvalidStringID;
+#else
+    report_error(func_name, "Member access requires Axiom Private Core (ECS)", node);
+    return kInvalidStringID;
+#endif
 }
 
 StringID TypeChecker::evaluate_array_literal(TSNode literal_node, StringID func_name) {

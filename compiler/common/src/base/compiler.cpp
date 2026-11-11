@@ -67,6 +67,7 @@ void TreeSitterSymbols::Initialize(const TSLanguage* lang) {
 ///
 ///   複数コンポーネントがある場合、field_names/field_types は連続して追記される。
 void AnalyzeAST(TSNode root_node, std::string_view source_text, StringInterner& interner, VariableRegistry_DOD& registry, ComponentRegistry_DOD& comp_registry, const TreeSitterSymbols& symbols) {
+    (void)comp_registry;
     uint32_t child_count = ts_node_child_count(root_node);  // 名前なし含む全子ノード数
 
     for (uint32_t i = 0; i < child_count; ++i) {
@@ -101,6 +102,7 @@ void AnalyzeAST(TSNode root_node, std::string_view source_text, StringInterner& 
             registry.initial_values.push_back(value_id);
 
         } else if (ts_node_symbol(child) == symbols.component_declaration) {
+#if defined(AXIOM_HAS_PRIVATE_CORE)
             // --- コンポーネント宣言の処理 ---
             TSNode name_node = ts_node_child_by_field_id(child, symbols.field_name);
             uint32_t n_start = ts_node_start_byte(name_node);
@@ -140,6 +142,7 @@ void AnalyzeAST(TSNode root_node, std::string_view source_text, StringInterner& 
             comp_registry.names.push_back(name_id);
             comp_registry.field_starts.push_back(start_idx);
             comp_registry.field_counts.push_back(field_count);
+#endif
         }
     }
 }

@@ -40,6 +40,11 @@
 
 #include "axiom/base/compiler.h"
 #include "axiom/base/diagnostic.h"
+#include "axiom/sema/type_checker.h"
+#include "axiom/sema/type_system.h"
+#include "axiom/syntax/analyzer.h"
+
+#if defined(AXIOM_HAS_PRIVATE_CORE)
 #include "axiom/codegen/arm64_asm_emitter.h"
 #include "axiom/ir/ir_builder.h"
 #include "axiom/ir/ir_optimizer.h"
@@ -47,11 +52,6 @@
 #include "axiom/ir/ir_vm.h"
 #include "axiom/jit/arm64_naive_jit.h"
 #include "axiom/jit/jit_arena.h"
-#include "axiom/sema/type_checker.h"
-#include "axiom/sema/type_system.h"
-#include "axiom/syntax/analyzer.h"
-
-#if defined(AXIOM_HAS_PRIVATE_CORE)
 #include "axiom/priv/private_core.h"
 #endif
 
@@ -159,7 +159,7 @@ std::optional<std::string> read_file(const std::string& path) {
     return buffer.str();
 }
 
-bool write_file(const std::string& path, std::string_view content) {
+[[maybe_unused]] bool write_file(const std::string& path, std::string_view content) {
     std::ofstream file(path);
     if (!file.is_open()) {
         std::cerr << "error: cannot open output file '" << path << "'\n";
@@ -169,7 +169,7 @@ bool write_file(const std::string& path, std::string_view content) {
     return true;
 }
 
-bool assemble_with_clang(std::string_view asm_code, std::string_view output_bin) {
+[[maybe_unused]] bool assemble_with_clang(std::string_view asm_code, std::string_view output_bin) {
     std::string cmd = std::format("clang -x assembler - -o {}", output_bin);
 #if defined(_WIN32)
     FILE* pipe = _popen(cmd.c_str(), "wb");
@@ -240,6 +240,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+#if defined(AXIOM_HAS_PRIVATE_CORE)
     axiom::ir::IrBuilder builder(source, interner);
     axiom::ir::IrModule module = builder.build(root);
 
@@ -248,9 +249,7 @@ int main(int argc, char* argv[]) {
 
     if (opts.optimize) {
         axiom::ir::IrOptimizer::optimize_module(module);
-#if defined(AXIOM_HAS_PRIVATE_CORE)
         axiom::priv::run_private_ir_passes(module);
-#endif
     }
 
     switch (opts.command) {
@@ -318,4 +317,10 @@ int main(int argc, char* argv[]) {
     }
 
     return 0;
+#else
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+    std::cerr << "error: backend commands (IR/JIT/Codegen) require Axiom Private Core\n";
+    return 1;
+#endif
 }

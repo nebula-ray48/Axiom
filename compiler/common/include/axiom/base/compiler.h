@@ -30,6 +30,10 @@
 #include <unordered_map>
 #include <vector>
 
+#if defined(AXIOM_HAS_PRIVATE_CORE)
+#include "axiom/ecs/component_registry.h"
+#endif
+
 #include <tree_sitter/api.h>
 
 // tree-sitter-nexa グラマーのエントリポイント（C言語で実装されている）。
@@ -113,23 +117,10 @@ struct VariableRegistry_DOD {
     std::vector<StringID> initial_values;
 };
 
-/// コンポーネント宣言をDOD形式で保持するレジストリ。
-///
-/// コンポーネント i のフィールド一覧は以下で取得できる:
-///   field_names[field_starts[i] .. field_starts[i] + field_counts[i]]
-///
-/// 例: `component Position { x: float32, y: float32 }`
-///   names[0]       = "Position"
-///   field_starts[0]= 0, field_counts[0]= 2
-///   field_names    = ["x", "y"]
-///   field_types    = ["float32", "float32"]
-struct ComponentRegistry_DOD {
-    std::vector<StringID> names;
-    std::vector<uint32_t> field_starts;  // フィールド配列の開始インデックス
-    std::vector<uint32_t> field_counts;  // このコンポーネントのフィールド数
-    std::vector<StringID> field_names;   // 全コンポーネントのフィールド名を連続して格納
-    std::vector<StringID> field_types;   // 全コンポーネントのフィールド型を連続して格納
-};
+#if !defined(AXIOM_HAS_PRIVATE_CORE)
+/// 公開版ビルド用スタブ（ECS 機能は Axiom Private Core にて提供）
+struct ComponentRegistry_DOD {};
+#endif
 
 // ----------------------------------------------------------------
 // TreeSitterSymbols
