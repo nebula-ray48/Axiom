@@ -62,9 +62,9 @@ struct VariableInfo {
 };
 
 /// if 文1つ分の情報。
-/// 現時点では条件式の変数名(StringID)のみ保持する簡易実装。
 struct IfInfo {
-    StringID condition_id;  // 条件式に使われている変数名のID
+    StringID condition_id { kInvalidStringID };  // 条件式に使われている変数名のID（後方互換用）
+    TSNode condition_node {};                    // 条件式の AST ノード（式評価用）
 };
 
 /// forEach ループ1つ分の情報。
@@ -87,7 +87,8 @@ struct ForEachInfo {
 
 /// while ループ1つ分の情報。
 struct WhileInfo {
-    StringID condition_id;  // 条件式に使われている変数名のID
+    StringID condition_id { kInvalidStringID };  // 条件式に使われている変数名のID（後方互換用）
+    TSNode condition_node {};                    // 条件式の AST ノード（式評価用）
 };
 
 /// break / continue 文 1つ分の情報

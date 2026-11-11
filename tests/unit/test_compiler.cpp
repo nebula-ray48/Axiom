@@ -2223,3 +2223,80 @@ TEST(TypeCheckerTest, LoopControlBreakInsideForEachError) {
     ts_parser_delete(parser);
 }
 
+// if / while 文：比較式による条件判定の正常系（例: if n <= 1, while i < 10）
+TEST(TypeCheckerTest, IfAndWhileBinaryConditionValid) {
+    const char* source = R"(
+        fun fact(n: int32) -> int32 {
+            if n <= 1 {
+                return 1;
+            }
+            var i: int32 = 1;
+            var acc: int32 = 1;
+            while i <= n {
+                acc = acc * i;
+                i += 1;
+            }
+            return acc;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(checker.check_all());
+    EXPECT_TRUE(checker.get_errors().empty());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// if / while 文：算術式（int32）を条件に指定した際の型エラー検出
+TEST(TypeCheckerTest, IfAndWhileArithmeticConditionError) {
+    const char* source = R"(
+        fun main() -> int32 {
+            var x: int32 = 5;
+            if x + 1 {
+                return 1;
+            }
+            while x - 1 {
+                x -= 1;
+            }
+            return 0;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_EQ(errors.size(), 2u);
+    EXPECT_NE(errors[0].message.find("If condition must be bool"), std::string::npos);
+    EXPECT_NE(errors[1].message.find("While condition must be bool"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+
