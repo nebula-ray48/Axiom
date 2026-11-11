@@ -210,13 +210,19 @@ void TypeChecker::check_for_each_loops(StringID func_name, const std::vector<For
 ///   - その変数が bool 型かどうか
 void TypeChecker::check_if_statements(StringID func_name, const std::vector<IfInfo>& if_stmts) {
     for (const auto& stmt : if_stmts) {
-        // SymbolTable で条件式変数の型を逆引き
-        StringID type_id = symbol_table_.lookup(stmt.condition_id);
+        if (stmt.condition_node.id != nullptr && !ts_node_is_null(stmt.condition_node)) {
+            StringID type_id = evaluate_expression(stmt.condition_node, func_name);
+            if (is_valid(type_id) && type_id != type_registry_.get_bool()) {
+                report_error(func_name, "If condition must be bool");
+            }
+        } else if (is_valid(stmt.condition_id)) {
+            StringID type_id = symbol_table_.lookup(stmt.condition_id);
 
-        if (type_id == kInvalidStringID) {
-            report_error(func_name, "Undefined variable in if condition");
-        } else if (type_id != type_registry_.get_bool()) {
-            report_error(func_name, "If condition must be bool");
+            if (type_id == kInvalidStringID) {
+                report_error(func_name, "Undefined variable in if condition");
+            } else if (type_id != type_registry_.get_bool()) {
+                report_error(func_name, "If condition must be bool");
+            }
         }
     }
 }
@@ -228,12 +234,19 @@ void TypeChecker::check_if_statements(StringID func_name, const std::vector<IfIn
 ///   - その変数が bool 型かどうか
 void TypeChecker::check_while_loops(StringID func_name, const std::vector<WhileInfo>& while_loops) {
     for (const auto& loop : while_loops) {
-        StringID type_id = symbol_table_.lookup(loop.condition_id);
+        if (loop.condition_node.id != nullptr && !ts_node_is_null(loop.condition_node)) {
+            StringID type_id = evaluate_expression(loop.condition_node, func_name);
+            if (is_valid(type_id) && type_id != type_registry_.get_bool()) {
+                report_error(func_name, "While condition must be bool");
+            }
+        } else if (is_valid(loop.condition_id)) {
+            StringID type_id = symbol_table_.lookup(loop.condition_id);
 
-        if (type_id == kInvalidStringID) {
-            report_error(func_name, "Undefined variable in while condition");
-        } else if (type_id != type_registry_.get_bool()) {
-            report_error(func_name, "While condition must be bool");
+            if (type_id == kInvalidStringID) {
+                report_error(func_name, "Undefined variable in while condition");
+            } else if (type_id != type_registry_.get_bool()) {
+                report_error(func_name, "While condition must be bool");
+            }
         }
     }
 }

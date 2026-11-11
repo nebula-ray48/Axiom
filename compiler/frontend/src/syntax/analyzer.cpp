@@ -241,8 +241,10 @@ void Analyzer::analyze_if(TSNode if_node, FunctionInfo& current_func) {
     TSNode condition_node = ts_node_child_by_field_name(if_node, "condition", 9);
     if (!ts_node_is_null(condition_node)) {
         if_info.condition_id = get_node_string_id(condition_node);
+        if_info.condition_node = condition_node;
     } else {
         if_info.condition_id = kInvalidStringID;
+        if_info.condition_node = TSNode{};
     }
 
     current_func.if_statements.push_back(std::move(if_info));
@@ -274,8 +276,10 @@ void Analyzer::analyze_while(TSNode while_node, FunctionInfo& current_func) {
     TSNode cond_node = ts_node_child_by_field_name(while_node, "condition", 9);
     if (!ts_node_is_null(cond_node)) {
         info.condition_id = get_node_string_id(cond_node);
+        info.condition_node = cond_node;
     } else {
         info.condition_id = kInvalidStringID;
+        info.condition_node = TSNode{};
     }
 
     current_func.while_loops.push_back(std::move(info));

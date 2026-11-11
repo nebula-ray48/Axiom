@@ -38,6 +38,9 @@
 #include "axiom/ir/ir_vm.h"
 #include "axiom/jit/arm64_naive_jit.h"
 #include "axiom/jit/jit_arena.h"
+#include "axiom/sema/type_checker.h"
+#include "axiom/sema/type_system.h"
+#include "axiom/syntax/analyzer.h"
 
 // parse_test_code() の前方宣言。
 // 本体は core/src/compiler.cpp に実装されている。
@@ -45,6 +48,7 @@
 namespace axiom {
 
 enum class Command {
+    Check,    // check (構文解析・型検査のみ)
     DumpIr,   // dump-ir
     DumpDot,  // dump-dot
     Vm,       // vm
@@ -72,6 +76,8 @@ CliOptions parse_args(int argc, char* argv[]) {
         std::string_view arg = argv[i];
         if (arg == "help" || arg == "--help" || arg == "-h") {
             return CliOptions{ .command = Command::Help };
+        } else if (arg == "check") {
+            opts.command = Command::Check;
         } else if (arg == "dump-ir") {
             opts.command = Command::DumpIr;
         } else if (arg == "dump-dot") {
@@ -116,6 +122,7 @@ CliOptions parse_args(int argc, char* argv[]) {
 void print_usage(const char* prog_name) {
     std::cout << "Usage: " << prog_name << " <command> [options] <file.ax>\n\n"
               << "Commands:\n"
+              << "  check     Run semantic analysis and type checking without code generation\n"
               << "  dump-ir   Dump intermediate representation (IR) in text format\n"
               << "  dump-dot  Dump control flow graph (CFG) in Graphviz DOT format\n"
               << "  vm        Execute using reference IR VM\n"
@@ -198,6 +205,27 @@ int main(int argc, char* argv[]) {
 
     // 3. IR を構築する
     axiom::StringInterner interner;
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root);
+
+    axiom::TypeRegistry type_registry(interner);
+    axiom::TypeChecker checker(source, analyzer.get_functions(), type_registry, interner);
+
+    if (!checker.check_all()) {
+        for (const auto& err : checker.get_errors()) {
+            std::cerr << "error: " << err.message << "\n";
+        }
+        ts_tree_delete(tree);
+        ts_parser_delete(parser);
+        return 1;
+    }
+
+    if (opts.command == axiom::Command::Check) {
+        ts_tree_delete(tree);
+        ts_parser_delete(parser);
+        return 0;
+    }
+
     axiom::ir::IrBuilder builder(source, interner);
     axiom::ir::IrModule module = builder.build(root);
 
@@ -218,7 +246,6 @@ int main(int argc, char* argv[]) {
             break;
 
         case axiom::Command::Vm: {
-            // "main" 関数を探して実行する
             axiom::StringID main_id = interner.Intern("main");
             axiom::ir::IrVm vm;
             auto result = vm.execute(module, main_id);
