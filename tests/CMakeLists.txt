@@ -11,6 +11,13 @@ file(GLOB_RECURSE AXIOM_TEST_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cpp
 )
 
+if(EXISTS "${CMAKE_SOURCE_DIR}/compiler/private/tests")
+    file(GLOB_RECURSE AXIOM_PRIVATE_TEST_SOURCES CONFIGURE_DEPENDS
+        ${CMAKE_SOURCE_DIR}/compiler/private/tests/*.cpp
+    )
+    list(APPEND AXIOM_TEST_SOURCES ${AXIOM_PRIVATE_TEST_SOURCES})
+endif()
+
 add_executable(axiom-test
     main.cpp
     ${AXIOM_TEST_SOURCES}

@@ -11,6 +11,9 @@
 # AI / Agents
 /.agents/
 
+# Closed-Source Core (Open-Core Private Extension)
+/compiler/private/
+
 # Personal / Planning Notes
 /HANDOFF.md
 /*コンパイラのDODパイプライン.md

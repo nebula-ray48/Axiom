@@ -51,6 +51,10 @@
 #include "axiom/sema/type_system.h"
 #include "axiom/syntax/analyzer.h"
 
+#if defined(AXIOM_HAS_PRIVATE_CORE)
+#include "axiom/priv/private_core.h"
+#endif
+
 // parse_test_code() の前方宣言。
 // 本体は core/src/compiler.cpp に実装されている。
 // CLI は core ライブラリにリンクされているので、ここで宣言するだけで使える。
@@ -244,6 +248,9 @@ int main(int argc, char* argv[]) {
 
     if (opts.optimize) {
         axiom::ir::IrOptimizer::optimize_module(module);
+#if defined(AXIOM_HAS_PRIVATE_CORE)
+        axiom::priv::run_private_ir_passes(module);
+#endif
     }
 
     switch (opts.command) {

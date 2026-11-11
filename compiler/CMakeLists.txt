@@ -42,6 +42,16 @@ target_link_libraries(axiom-core INTERFACE
 )
 
 # -------------------------------------------------------------
+# Optional Closed-Source Core Extension (Open-Core Hook)
+# -------------------------------------------------------------
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/private/CMakeLists.txt")
+    message(STATUS "[Axiom] Closed-source private core detected: enabling axiom-private")
+    add_subdirectory(private)
+    target_compile_definitions(axiom-core INTERFACE AXIOM_HAS_PRIVATE_CORE=1)
+    target_link_libraries(axiom-core INTERFACE axiom-private)
+endif()
+
+# -------------------------------------------------------------
 # Compiler CLI Driver
 # -------------------------------------------------------------
 add_subdirectory(driver)
