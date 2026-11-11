@@ -97,7 +97,8 @@ private:
 
     /// TypeError を生成して errors_ に追加するユーティリティ。
     /// メッセージには関数名を自動的にプレフィックスとして付ける。
-    void report_error(StringID func_id, std::string_view message);
+    void report_error(StringID func_id, std::string_view message, SourceLocation location = {});
+    void report_error(StringID func_id, std::string_view message, TSNode node);
 
     /// ブロック（文の集まり）を処理する。
     /// 現在は ParameterInfo のベクタを受け取るが、将来的に StatementInfo 等に変わる可能性がある。

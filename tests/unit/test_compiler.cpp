@@ -55,31 +55,6 @@ TEST(AnalyzerTest, ParseVariable) {
     EXPECT_EQ(interner.GetString(var_reg.initial_values[0]), "100");
 }
 
-// 2. コンポーネント解析のテスト
-TEST(AnalyzerTest, ParseComponent) {
-    StringInterner interner;
-    VariableRegistry_DOD var_reg;
-    ComponentRegistry_DOD comp_reg;
-
-    ParseAndAnalyze("component Position { x: float32, y: float32 }", interner, var_reg, comp_reg);
-
-    // 抽出されたコンポーネントが1つであることを保証
-    ASSERT_EQ(comp_reg.names.size(), 1);
-    EXPECT_EQ(interner.GetString(comp_reg.names[0]), "Position");
-
-    // フィールドが2つ抽出されていることを保証
-    ASSERT_EQ(comp_reg.field_counts[0], 2);
-
-    // フラットなSoA配列からフィールド情報を検証
-    uint32_t start = comp_reg.field_starts[0];
-
-    EXPECT_EQ(interner.GetString(comp_reg.field_names[start + 0]), "x");
-    EXPECT_EQ(interner.GetString(comp_reg.field_types[start + 0]), "float32");
-
-    EXPECT_EQ(interner.GetString(comp_reg.field_names[start + 1]), "y");
-    EXPECT_EQ(interner.GetString(comp_reg.field_types[start + 1]), "float32");
-}
-
 TEST(AnalyzerTest, ParseFunctionAndForEach) {
     // テスト用のNexaコード
     // 関数宣言と、その中にある forEach 文を定義
@@ -1117,260 +1092,6 @@ TEST(TypeCheckerTest, CallExpressionUndefinedFunction) {
     ts_parser_delete(parser);
 }
 
-// ECS メンバアクセス：正常系（Position.x -> float32）
-TEST(TypeCheckerTest, MemberAccessValid) {
-    const char* source = R"(
-        fun main() -> void {
-            val px: float32 = Position.x;
-            val py: float32 = Position.y;
-        }
-    )";
-
-    axiom::StringInterner interner;
-    axiom::TypeRegistry registry(interner);
-
-    // ComponentRegistry_DOD に Position { x: float32, y: float32 } を登録
-    axiom::ComponentRegistry_DOD comp_reg;
-    comp_reg.names.push_back(interner.Intern("Position"));
-    comp_reg.field_starts.push_back(0);
-    comp_reg.field_counts.push_back(2);
-    comp_reg.field_names.push_back(interner.Intern("x"));
-    comp_reg.field_types.push_back(interner.Intern("float32"));
-    comp_reg.field_names.push_back(interner.Intern("y"));
-    comp_reg.field_types.push_back(interner.Intern("float32"));
-
-    TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_axiom());
-
-    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
-    TSNode root_node = ts_tree_root_node(tree);
-
-    axiom::Analyzer analyzer(source, interner);
-    analyzer.analyze_root(root_node);
-
-    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
-    EXPECT_TRUE(checker.check_all());
-    EXPECT_TRUE(checker.get_errors().empty());
-
-    ts_tree_delete(tree);
-    ts_parser_delete(parser);
-}
-
-// ECS メンバアクセス：型不一致エラー（float32 を int32 に代入）
-TEST(TypeCheckerTest, MemberAccessTypeMismatch) {
-    const char* source = R"(
-        fun main() -> void {
-            val px: int32 = Position.x;
-        }
-    )";
-
-    axiom::StringInterner interner;
-    axiom::TypeRegistry registry(interner);
-
-    axiom::ComponentRegistry_DOD comp_reg;
-    comp_reg.names.push_back(interner.Intern("Position"));
-    comp_reg.field_starts.push_back(0);
-    comp_reg.field_counts.push_back(1);
-    comp_reg.field_names.push_back(interner.Intern("x"));
-    comp_reg.field_types.push_back(interner.Intern("float32"));
-
-    TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_axiom());
-
-    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
-    TSNode root_node = ts_tree_root_node(tree);
-
-    axiom::Analyzer analyzer(source, interner);
-    analyzer.analyze_root(root_node);
-
-    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
-    EXPECT_FALSE(checker.check_all());
-
-    const auto& errors = checker.get_errors();
-    ASSERT_FALSE(errors.empty());
-    // Variable declaration type mismatch
-    EXPECT_TRUE(errors[0].message.find("does not match initial value type") != std::string::npos);
-
-    ts_tree_delete(tree);
-    ts_parser_delete(parser);
-}
-
-// ECS メンバアクセス：未定義コンポーネントエラー
-TEST(TypeCheckerTest, MemberAccessUndefinedComponent) {
-    const char* source = R"(
-        fun main() -> void {
-            val x = UnknownComponent.x;
-        }
-    )";
-
-    axiom::StringInterner interner;
-    axiom::TypeRegistry registry(interner);
-    axiom::ComponentRegistry_DOD comp_reg; // 空
-
-    TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_axiom());
-
-    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
-    TSNode root_node = ts_tree_root_node(tree);
-
-    axiom::Analyzer analyzer(source, interner);
-    analyzer.analyze_root(root_node);
-
-    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
-    EXPECT_FALSE(checker.check_all());
-
-    const auto& errors = checker.get_errors();
-    ASSERT_FALSE(errors.empty());
-    EXPECT_TRUE(errors[0].message.find("Undefined component") != std::string::npos);
-
-    ts_tree_delete(tree);
-    ts_parser_delete(parser);
-}
-
-// ECS メンバアクセス：存在しないフィールドエラー
-TEST(TypeCheckerTest, MemberAccessFieldNotFound) {
-    const char* source = R"(
-        fun main() -> void {
-            val z = Position.z;
-        }
-    )";
-
-    axiom::StringInterner interner;
-    axiom::TypeRegistry registry(interner);
-
-    axiom::ComponentRegistry_DOD comp_reg;
-    comp_reg.names.push_back(interner.Intern("Position"));
-    comp_reg.field_starts.push_back(0);
-    comp_reg.field_counts.push_back(2);
-    comp_reg.field_names.push_back(interner.Intern("x"));
-    comp_reg.field_types.push_back(interner.Intern("float32"));
-    comp_reg.field_names.push_back(interner.Intern("y"));
-    comp_reg.field_types.push_back(interner.Intern("float32"));
-
-    TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_axiom());
-
-    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
-    TSNode root_node = ts_tree_root_node(tree);
-
-    axiom::Analyzer analyzer(source, interner);
-    analyzer.analyze_root(root_node);
-
-    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
-    EXPECT_FALSE(checker.check_all());
-
-    const auto& errors = checker.get_errors();
-    ASSERT_FALSE(errors.empty());
-    EXPECT_TRUE(errors[0].message.find("Field not found") != std::string::npos);
-
-    ts_tree_delete(tree);
-    ts_parser_delete(parser);
-}
-
-// 代入文（L-Value）：ECS メンバアクセス代入（正常系）
-TEST(TypeCheckerTest, AssignmentMemberAccessValid) {
-    const char* source = R"(
-        fun update() -> void {
-            Position.x = 10.0;
-        }
-    )";
-
-    axiom::StringInterner interner;
-    axiom::TypeRegistry registry(interner);
-
-    axiom::ComponentRegistry_DOD comp_reg;
-    comp_reg.names.push_back(interner.Intern("Position"));
-    comp_reg.field_starts.push_back(0);
-    comp_reg.field_counts.push_back(1);
-    comp_reg.field_names.push_back(interner.Intern("x"));
-    comp_reg.field_types.push_back(interner.Intern("float32"));
-
-    TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_axiom());
-
-    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
-    TSNode root_node = ts_tree_root_node(tree);
-
-    axiom::Analyzer analyzer(source, interner);
-    analyzer.analyze_root(root_node);
-
-    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
-    EXPECT_TRUE(checker.check_all());
-
-    ts_tree_delete(tree);
-    ts_parser_delete(parser);
-}
-
-// 代入文（L-Value）：ECS メンバアクセス型不一致エラー
-TEST(TypeCheckerTest, AssignmentMemberAccessTypeMismatch) {
-    const char* source = R"(
-        fun update() -> void {
-            Position.x = 100;
-        }
-    )";
-
-    axiom::StringInterner interner;
-    axiom::TypeRegistry registry(interner);
-
-    axiom::ComponentRegistry_DOD comp_reg;
-    comp_reg.names.push_back(interner.Intern("Position"));
-    comp_reg.field_starts.push_back(0);
-    comp_reg.field_counts.push_back(1);
-    comp_reg.field_names.push_back(interner.Intern("x"));
-    comp_reg.field_types.push_back(interner.Intern("float32"));
-
-    TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_axiom());
-
-    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
-    TSNode root_node = ts_tree_root_node(tree);
-
-    axiom::Analyzer analyzer(source, interner);
-    analyzer.analyze_root(root_node);
-
-    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
-    EXPECT_FALSE(checker.check_all());
-
-    const auto& errors = checker.get_errors();
-    ASSERT_FALSE(errors.empty());
-    EXPECT_TRUE(errors[0].message.find("Type mismatch in assignment") != std::string::npos);
-
-    ts_tree_delete(tree);
-    ts_parser_delete(parser);
-}
-
-// 代入文（L-Value）：未定義コンポーネントへの代入エラー
-TEST(TypeCheckerTest, AssignmentMemberAccessUndefinedComponent) {
-    const char* source = R"(
-        fun update() -> void {
-            Unknown.x = 10.0;
-        }
-    )";
-
-    axiom::StringInterner interner;
-    axiom::TypeRegistry registry(interner);
-    axiom::ComponentRegistry_DOD comp_reg;
-
-    TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_axiom());
-
-    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
-    TSNode root_node = ts_tree_root_node(tree);
-
-    axiom::Analyzer analyzer(source, interner);
-    analyzer.analyze_root(root_node);
-
-    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
-    EXPECT_FALSE(checker.check_all());
-
-    const auto& errors = checker.get_errors();
-    ASSERT_FALSE(errors.empty());
-    EXPECT_TRUE(errors[0].message.find("Undefined component") != std::string::npos);
-
-    ts_tree_delete(tree);
-    ts_parser_delete(parser);
-}
-
 // 配列リテラル：正常系（要素型の一致と型推論）
 TEST(TypeCheckerTest, ArrayLiteralValid) {
     const char* source = R"(
@@ -1803,9 +1524,6 @@ TEST(TypeCheckerTest, CompoundAssignmentValid) {
             f *= 2.0;
             f /= 1.5;
 
-            Position.x += 10.0;
-            Position.x -= 2.0;
-
             val scores: [int32; 3] = [10, 20, 30];
             scores[0] += 5;
             scores[1] *= 2;
@@ -1814,13 +1532,6 @@ TEST(TypeCheckerTest, CompoundAssignmentValid) {
 
     axiom::StringInterner interner;
     axiom::TypeRegistry registry(interner);
-
-    axiom::ComponentRegistry_DOD comp_reg;
-    comp_reg.names.push_back(interner.Intern("Position"));
-    comp_reg.field_starts.push_back(0);
-    comp_reg.field_counts.push_back(1);
-    comp_reg.field_names.push_back(interner.Intern("x"));
-    comp_reg.field_types.push_back(interner.Intern("float32"));
 
     TSParser* parser = ts_parser_new();
     ts_parser_set_language(parser, tree_sitter_axiom());
@@ -1831,7 +1542,7 @@ TEST(TypeCheckerTest, CompoundAssignmentValid) {
     axiom::Analyzer analyzer(source, interner);
     analyzer.analyze_root(root_node);
 
-    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg);
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
     EXPECT_TRUE(checker.check_all());
     EXPECT_TRUE(checker.get_errors().empty());
 
@@ -2294,6 +2005,88 @@ TEST(TypeCheckerTest, IfAndWhileArithmeticConditionError) {
     ASSERT_EQ(errors.size(), 2u);
     EXPECT_NE(errors[0].message.find("If condition must be bool"), std::string::npos);
     EXPECT_NE(errors[1].message.find("While condition must be bool"), std::string::npos);
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
+// 診断表示：指定行の文字列切り出し (get_source_line) の単体テスト
+TEST(DiagnosticTest, GetSourceLine) {
+    std::string_view source = "line 1\nline 2 with carriage return\r\nline 3";
+    EXPECT_EQ(axiom::get_source_line(source, 1), "line 1");
+    EXPECT_EQ(axiom::get_source_line(source, 2), "line 2 with carriage return");
+    EXPECT_EQ(axiom::get_source_line(source, 3), "line 3");
+    EXPECT_EQ(axiom::get_source_line(source, 0), "");
+    EXPECT_EQ(axiom::get_source_line(source, 4), "");
+}
+
+// 診断表示：案 A（3行・ファイル:行:列・ガター・下線）レンダリングの単体テスト
+TEST(DiagnosticTest, RenderDiagnosticWithLocation) {
+    std::string_view source = "fun main() -> void {\n    if n + 1 {\n        return;\n    }\n}";
+    axiom::Diagnostic diag{
+        .function_name_id = 1,
+        .message = "main: If condition must be bool",
+        .location = axiom::SourceLocation{ .line = 2, .column = 8, .length = 5 },
+    };
+
+    std::ostringstream oss;
+    axiom::render_diagnostic(oss, diag, source, "examples/fact.ax", false);
+
+    std::string expected =
+        "examples/fact.ax:2:8: error: main: If condition must be bool\n"
+        "  2 |     if n + 1 {\n"
+        "    |        ^^^^^\n";
+
+    EXPECT_EQ(oss.str(), expected);
+}
+
+// 診断表示：位置情報がない場合の 1 行フォールバック単体テスト
+TEST(DiagnosticTest, RenderDiagnosticFallbackWithoutLocation) {
+    axiom::Diagnostic diag{
+        .function_name_id = 1,
+        .message = "main: Unknown error",
+        .location = axiom::SourceLocation{},
+    };
+
+    std::ostringstream oss;
+    axiom::render_diagnostic(oss, diag, "", "examples/fact.ax", false);
+
+    std::string expected = "examples/fact.ax: error: main: Unknown error\n";
+    EXPECT_EQ(oss.str(), expected);
+}
+
+// TypeChecker: エラー発生時に AST ノードから SourceLocation が正しく捕捉されるかの検証
+TEST(TypeCheckerTest, SourceLocationCapturedInError) {
+    const char* source = R"(
+        fun main() -> void {
+            if 10 + 20 {
+                return;
+            }
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(checker.check_all());
+
+    const auto& errors = checker.get_errors();
+    ASSERT_EQ(errors.size(), 1u);
+    EXPECT_TRUE(errors[0].location.is_valid());
+    // 3行目の "10 + 20" の位置（line = 3）
+    EXPECT_EQ(errors[0].location.line, 3u);
+    EXPECT_GT(errors[0].location.column, 1u);
+    EXPECT_GT(errors[0].location.length, 0u);
 
     ts_tree_delete(tree);
     ts_parser_delete(parser);

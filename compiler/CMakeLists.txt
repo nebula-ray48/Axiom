@@ -24,11 +24,22 @@ else()
 endif()
 
 # -------------------------------------------------------------
-# Axiom Subsystems: Common, Frontend (Public), Backend (Core)
+# Optional Closed-Source Core Extension (Open-Core Hook)
+# -------------------------------------------------------------
+option(AXIOM_ENABLE_PRIVATE_CORE "Enable closed-source private core if present" ON)
+
+set(AXIOM_PRIVATE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/private")
+if(AXIOM_ENABLE_PRIVATE_CORE AND EXISTS "${AXIOM_PRIVATE_DIR}/CMakeLists.txt")
+    message(STATUS "[Axiom] Closed-source private core detected: enabling axiom-private")
+    add_compile_definitions(AXIOM_HAS_PRIVATE_CORE=1)
+    include_directories(${AXIOM_PRIVATE_DIR}/include)
+endif()
+
+# -------------------------------------------------------------
+# Axiom Subsystems: Common, Frontend (Public)
 # -------------------------------------------------------------
 add_subdirectory(common)
 add_subdirectory(frontend)
-add_subdirectory(backend)
 
 # -------------------------------------------------------------
 # Axiom Core Composite Target (Aggregates subsystems)
@@ -38,8 +49,13 @@ add_library(axiom-core INTERFACE)
 target_link_libraries(axiom-core INTERFACE
     axiom-common
     axiom-frontend
-    axiom-backend
 )
+
+if(AXIOM_ENABLE_PRIVATE_CORE AND EXISTS "${AXIOM_PRIVATE_DIR}/CMakeLists.txt")
+    add_subdirectory(private)
+    target_compile_definitions(axiom-core INTERFACE AXIOM_HAS_PRIVATE_CORE=1)
+    target_link_libraries(axiom-core INTERFACE axiom-private)
+endif()
 
 # -------------------------------------------------------------
 # Compiler CLI Driver
