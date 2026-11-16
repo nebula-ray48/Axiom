@@ -2092,4 +2092,39 @@ TEST(TypeCheckerTest, SourceLocationCapturedInError) {
     ts_parser_delete(parser);
 }
 
+// TypeChecker: entity 宣言されたターゲットに対する forEach はエラーにならない
+TEST(TypeCheckerTest, ForEachDeclaredEntityValid) {
+    const char* source = R"(
+        entity Monster {
+            hp: int32,
+        }
+
+        fun update() -> void {
+            forEach Monster {
+                return;
+            }
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry registry(interner);
+
+    TSParser* parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, source, static_cast<uint32_t>(strlen(source)));
+    TSNode root_node = ts_tree_root_node(tree);
+
+    axiom::Analyzer analyzer(source, interner);
+    analyzer.analyze_root(root_node);
+
+    axiom::ComponentRegistry_DOD comp_reg;
+    axiom::TypeChecker checker(source, analyzer.get_functions(), registry, interner, comp_reg, analyzer.get_entities());
+    EXPECT_TRUE(checker.check_all());
+    EXPECT_TRUE(checker.get_errors().empty());
+
+    ts_tree_delete(tree);
+    ts_parser_delete(parser);
+}
+
 

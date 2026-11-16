@@ -49,10 +49,14 @@ public:
     /// analyze_root() を呼んだ後に使うこと。
     [[nodiscard]] const std::vector<FunctionInfo>& get_functions() const { return functions_; }
 
+    /// 解析結果のエンティティ名リスト（StringID）への const 参照を返す。
+    [[nodiscard]] const std::vector<StringID>& get_entities() const { return entity_names_; }
+
 private:
     std::string_view source_;         // ソースコード全体。バイトオフセット計算に使う
     StringInterner&  interner_;       // StringID への変換用
-    std::vector<FunctionInfo> functions_;  // 解析結果の蓄積先
+    std::vector<FunctionInfo> functions_;     // 解析結果の蓄積先
+    std::vector<StringID>     entity_names_;  // 宣言された entity 名の蓄積先
 
     uint32_t while_depth_   = 0; // 現在潜っている while ループの深さ
     uint32_t foreach_depth_ = 0; // 現在潜っている forEach ループの深さ

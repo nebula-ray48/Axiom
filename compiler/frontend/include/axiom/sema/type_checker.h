@@ -59,7 +59,8 @@ public:
                 const std::vector<FunctionInfo>& functions,
                 TypeRegistry&                    type_registry,
                 StringInterner&                  interner,
-                const ComponentRegistry_DOD&     comp_registry = kEmptyComponentRegistry
+                const ComponentRegistry_DOD&     comp_registry = kEmptyComponentRegistry,
+                const std::vector<StringID>&     entity_names  = kEmptyEntities
                 );
 
     TypeChecker(const std::vector<FunctionInfo>& functions,
@@ -78,6 +79,7 @@ private:
 
     // TODO テスト用の空のレジストリ
     inline static const ComponentRegistry_DOD kEmptyComponentRegistry{};
+    inline static const std::vector<StringID> kEmptyEntities{};
 
     // --- 外部から受け取るデータ（参照のみ、所有権はなし）---
     std::string_view source_;
@@ -85,6 +87,7 @@ private:
     TypeRegistry&   type_registry_;
     StringInterner& interner_;
     const ComponentRegistry_DOD& comp_registry_;
+    const std::vector<StringID>& entity_names_;
 
     // --- 検査中に状態が変化するデータ ---
     SymbolTable          symbol_table_;  // スコープ管理付きの変数テーブル
@@ -108,6 +111,7 @@ private:
     void check_variables(StringID func_name, const std::vector<VariableInfo>& variables);
 
     /// forEach ループの配列を一括チェック（エンティティ型・条件式の型を確認）。
+    [[nodiscard]] bool is_declared_entity(StringID entity_id) const;
     void check_for_each_loops(StringID func_name, const std::vector<ForEachInfo>& loops);
 
     /// if 文の配列を一括チェック（条件式が bool 型かを確認）。

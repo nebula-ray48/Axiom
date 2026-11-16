@@ -37,8 +37,14 @@ TypeChecker::TypeChecker(std::string_view source_code,
                          const std::vector<FunctionInfo>& functions,
                          TypeRegistry& type_registry,
                          StringInterner& interner,
-                         const ComponentRegistry_DOD& comp_registry)
-    : source_(source_code), functions_(functions), type_registry_(type_registry), interner_(interner), comp_registry_(comp_registry) {}
+                         const ComponentRegistry_DOD& comp_registry,
+                         const std::vector<StringID>& entity_names)
+    : source_(source_code),
+      functions_(functions),
+      type_registry_(type_registry),
+      interner_(interner),
+      comp_registry_(comp_registry),
+      entity_names_(entity_names) {}
 
 
 /// エラーを errors_ に追記する内部ユーティリティ。
@@ -176,6 +182,15 @@ void TypeChecker::check_variables(StringID func_name, const std::vector<Variable
     }
 }
 
+bool TypeChecker::is_declared_entity(StringID entity_id) const {
+    for (size_t i = 0; i < entity_names_.size(); ++i) {
+        if (entity_names_[i] == entity_id) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /// forEach ループリストを型検査する。
 ///
 /// チェック内容:
@@ -185,10 +200,8 @@ void TypeChecker::check_variables(StringID func_name, const std::vector<Variable
 void TypeChecker::check_for_each_loops(StringID func_name, const std::vector<ForEachInfo>& loops) {
     for (const auto& loop : loops) {
 
-        // 対象のエンティティ型が辞書に存在するかチェック
-        // 注意: 現在は is_builtin() しか持っていないので、ユーザー定義エンティティは必ずエラーになる
-        //       将来は EntityRegistry 等を参照するよう拡張が必要
-        if (!type_registry_.is_builtin(loop.target_entity_id)) {
+        // 対象のエンティティ型が組み込み型または宣言済み entity に存在するかチェック
+        if (!type_registry_.is_builtin(loop.target_entity_id) && !is_declared_entity(loop.target_entity_id)) {
             report_error(func_name, "Unknown target entity in forEach");
         }
 
