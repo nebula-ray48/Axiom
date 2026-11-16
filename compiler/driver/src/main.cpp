@@ -216,13 +216,19 @@ int main(int argc, char* argv[]) {
     TSTree* tree = ts_parser_parse_string(parser, nullptr, source.data(), static_cast<uint32_t>(source.size()));
     TSNode root = ts_tree_root_node(tree);
 
-    // 3. IR を構築する
+    // 3. AST からシンボル・コンポーネント・関数情報を抽出して型検査する
     axiom::StringInterner interner;
     axiom::Analyzer analyzer(source, interner);
     analyzer.analyze_root(root);
 
+    axiom::VariableRegistry_DOD var_registry;
+    axiom::ComponentRegistry_DOD comp_registry;
+    axiom::TreeSitterSymbols ts_symbols;
+    ts_symbols.Initialize(tree_sitter_axiom());
+    axiom::AnalyzeAST(root, source, interner, var_registry, comp_registry, ts_symbols);
+
     axiom::TypeRegistry type_registry(interner);
-    axiom::TypeChecker checker(source, analyzer.get_functions(), type_registry, interner);
+    axiom::TypeChecker checker(source, analyzer.get_functions(), type_registry, interner, comp_registry, analyzer.get_entities());
 
     if (!checker.check_all()) {
         bool use_color = IS_TTY(stderr);

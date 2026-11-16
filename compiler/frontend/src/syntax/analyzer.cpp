@@ -37,8 +37,7 @@ namespace axiom {
 Analyzer::Analyzer(std::string_view source_code, StringInterner& interner)
     : source_(source_code), interner_(interner) {}
 
-/// ASTのルートノードを走査し、トップレベルの function_declaration を解析する。
-/// Axiom ではトップレベルに関数宣言しか置けない設計なので、それ以外は無視する。
+/// ASTのルートノードを走査し、トップレベルの function_declaration と entity_declaration を解析する。
 void Analyzer::analyze_root(TSNode root_node) {
     uint32_t count = ts_node_named_child_count(root_node);
     for (uint32_t i = 0; i < count; ++i) {
@@ -46,6 +45,12 @@ void Analyzer::analyze_root(TSNode root_node) {
         std::string_view type = ts_node_type(child);
         if (type == "function_declaration") {
             analyze_function(child);
+        } else if (type == "entity_declaration") {
+            TSNode name_node = ts_node_child_by_field_name(child, "name", 4);
+            StringID entity_id = get_node_string_id(name_node);
+            if (is_valid(entity_id)) {
+                entity_names_.push_back(entity_id);
+            }
         }
     }
 }
