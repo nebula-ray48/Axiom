@@ -269,7 +269,7 @@ int main(int argc, char* argv[]) {
 
         case axiom::Command::Vm: {
             axiom::StringID main_id = interner.Intern("main");
-            axiom::ir::IrVm vm;
+            axiom::ir::IrVm vm(&interner, &std::cout);
             auto result = vm.execute(module, main_id);
             if (!result.ok()) {
                 std::cerr << "error: VM execution trapped\n";
@@ -281,7 +281,8 @@ int main(int argc, char* argv[]) {
 
         case axiom::Command::Run: {
             // JIT コンパイルして main をネイティブ実行する
-            auto compiled = axiom::jit::Arm64NaiveJit::compile_module(module);
+            auto ext_funcs = axiom::jit::make_default_external_funcs(interner);
+            auto compiled  = axiom::jit::Arm64NaiveJit::compile_module(module, ext_funcs);
             axiom::StringID main_id = interner.Intern("main");
             if (!compiled.func_inst_offsets.contains(main_id)) {
                 std::cerr << "error: 'main' function not found\n";

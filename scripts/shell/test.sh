@@ -20,7 +20,21 @@ cmake --build --preset default
 # テストまたは CLI の実行
 if [ $# -eq 0 ]; then
     echo "🧪 全テストを実行中..."
-    ctest --preset default
+    if [ "${VERBOSE:-0}" = "1" ]; then
+        ctest --preset default
+    else
+        log_file="$(mktemp)"
+        trap 'rm -f "${log_file}"' EXIT
+        if ctest --preset default > "${log_file}" 2>&1; then
+            passed_line="$(grep "tests passed" "${log_file}" | sed 's/^[[:space:]]*//')"
+            time_val="$(grep "Total Test time" "${log_file}" | awk -F'= ' '{print $2}' | sed 's/^[[:space:]]*//')"
+            echo "✅ ${passed_line} (${time_val})"
+        else
+            echo "❌ テスト失敗（詳細ログのみ表示。全体を見る場合は VERBOSE=1 ./scripts/shell/test.sh）"
+            grep -v -E '^[[:space:]]*Start [0-9]+:|^[[:space:]]*[0-9]+/[0-9]+ Test[[:space:]]+#[0-9]+:.*Passed[[:space:]]+[0-9.]+ sec$' "${log_file}" || cat "${log_file}"
+            exit 1
+        fi
+    fi
 elif [ "$1" = "run" ]; then
     shift
     echo "🚀 axc を実行中..."

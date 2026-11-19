@@ -180,6 +180,8 @@ void Analyzer::analyze_block(TSNode block_node, FunctionInfo& current_func) {
                 assign_info.op_node = op_node;
 
                 current_func.assignments.push_back(assign_info);
+            } else if (!ts_node_is_null(expr)) {
+                current_func.expression_statements.push_back(expr);
             }
         } else if (type == "return_statement") {
             ReturnInfo return_info;

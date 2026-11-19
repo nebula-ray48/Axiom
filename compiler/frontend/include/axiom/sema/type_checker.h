@@ -141,6 +141,7 @@ private:
 
     std::unordered_map<StringID, TypeRegistry::FunctionSignature> function_signatures_;
 
+    void register_builtin_functions();
     void register_function_signature(const FunctionInfo& func);
 
     StringID evaluate_call(TSNode node, StringID func_name);

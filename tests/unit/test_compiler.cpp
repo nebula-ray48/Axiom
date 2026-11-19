@@ -2127,4 +2127,44 @@ TEST(TypeCheckerTest, ForEachDeclaredEntityValid) {
     ts_parser_delete(parser);
 }
 
+// TypeChecker: 組み込み出力関数 (print_i32, print_f32, print_bool) の型検査（正常系・異常系）
+TEST(TypeCheckerTest, BuiltinPrintFunctionsValidAndTypeMismatch) {
+    const char* valid_source = R"(
+        fun main() -> int32 {
+            print_i32(42);
+            print_f32(2.5);
+            print_bool(true);
+            return 0;
+        }
+    )";
+
+    axiom::StringInterner interner;
+    axiom::TypeRegistry   registry(interner);
+    TSParser*             parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_axiom());
+
+    TSTree* tree = ts_parser_parse_string(parser, nullptr, valid_source, static_cast<uint32_t>(strlen(valid_source)));
+    axiom::Analyzer analyzer(valid_source, interner);
+    analyzer.analyze_root(ts_tree_root_node(tree));
+    axiom::TypeChecker valid_checker(valid_source, analyzer.get_functions(), registry, interner);
+    EXPECT_TRUE(valid_checker.check_all());
+    EXPECT_TRUE(valid_checker.get_errors().empty());
+    ts_tree_delete(tree);
+
+    const char* bad_source = R"(
+        fun main() -> int32 {
+            print_i32(2.5);
+            return 0;
+        }
+    )";
+    TSTree* bad_tree = ts_parser_parse_string(parser, nullptr, bad_source, static_cast<uint32_t>(strlen(bad_source)));
+    axiom::Analyzer bad_analyzer(bad_source, interner);
+    bad_analyzer.analyze_root(ts_tree_root_node(bad_tree));
+    axiom::TypeChecker bad_checker(bad_source, bad_analyzer.get_functions(), registry, interner);
+    EXPECT_FALSE(bad_checker.check_all());
+    ts_tree_delete(bad_tree);
+
+    ts_parser_delete(parser);
+}
+
 

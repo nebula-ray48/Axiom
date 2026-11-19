@@ -59,6 +59,24 @@ void TypeChecker::report_error(StringID func_id, std::string_view message, TSNod
     axiom::report_error(errors_, func_id, message, &interner_, node);
 }
 
+void TypeChecker::register_builtin_functions() {
+    struct BuiltinUnaryDef {
+        std::string_view name;
+        StringID         param_type;
+    };
+
+    const StringID        void_id   = type_registry_.get_void();
+    const BuiltinUnaryDef builtins[] = {
+        { .name = "print_i32",  .param_type = type_registry_.get_int32() },
+        { .name = "print_f32",  .param_type = type_registry_.get_float32() },
+        { .name = "print_bool", .param_type = type_registry_.get_bool() },
+    };
+
+    for (const auto & builtin : builtins) {
+        function_signatures_[interner_.Intern(builtin.name)] = TypeRegistry::FunctionSignature{ .return_type_id = void_id, .parameter_types = { builtin.param_type } };
+    }
+}
+
 void TypeChecker::register_function_signature(const FunctionInfo& func) {
 
     if (function_signatures_.contains(func.name_id)) {
@@ -81,6 +99,7 @@ void TypeChecker::register_function_signature(const FunctionInfo& func) {
 
 /// 全関数を型検査する。エラーが1つもなければ true を返す。
 bool TypeChecker::check_all() {
+    register_builtin_functions();
 
     for (const auto& func : functions_) {
         register_function_signature(func);
@@ -136,6 +155,9 @@ void TypeChecker::check_function(const FunctionInfo& func) {
     check_while_loops(func.name_id, func.while_loops);
     check_loop_controls(func.name_id, func.loop_controls);
     check_assignments(func.name_id, func.assignments);
+    for (TSNode expr : func.expression_statements) {
+        (void)evaluate_expression(expr, func.name_id);
+    }
     check_return_statements(func.name_id, func.return_type_id, func.return_statements);
 
     symbol_table_.exit_scope(); // 関数のスコープから出る

@@ -134,6 +134,7 @@ struct FunctionInfo {
     std::vector<WhileInfo>     while_loops;     // 関数内の while 一覧
     std::vector<VariableInfo>  variables;       // 関数内の変数宣言一覧
     std::vector<AssignmentInfo> assignments;    // 変数の代入チェック
+    std::vector<TSNode> expression_statements;   // 代入以外の単独式文（print_* 等の void 関数呼び出し）
     std::vector<ReturnInfo> return_statements;
     std::vector<LoopControlInfo> loop_controls;  // 関数内の break / continue 一覧
 };
